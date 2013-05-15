@@ -1,0 +1,8 @@
+<form action="/" method="post">
+      <textarea style="width: 400px; height: 400px" name="oi">
+      </textarea>
+      <br />
+      <input type="submit" />
+</form>
+
+{{ oi }}

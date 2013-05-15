@@ -1,0 +1,14 @@
+{ application
+, como
+, [ {description, ""}
+  , {vsn, "1"}
+  , {registered, []}
+  , {applications, [ kernel
+                   , stdlib
+                   , cowboy
+                   , giallo
+                   ]
+    }
+  , {mod, {como_app, []}}
+  , {env, []}
+ ]}.

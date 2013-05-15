@@ -1,0 +1,10 @@
+{application,como,
+             [{description,[]},
+              {vsn,"1"},
+              {registered,[]},
+              {applications,[kernel,stdlib,cowboy,giallo]},
+              {mod,{como_app,[]}},
+              {env,[]},
+              {modules,[como,como_app,como_sup,index_handler,
+                        index_handler_index__dtl,index_handler_index_dtl,
+                        mochiweb_util]}]}.
