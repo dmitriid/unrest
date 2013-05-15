@@ -13,7 +13,7 @@ start(_Type, _Args) ->
             {"/", index_handler, []},
             %% Static handler
             {["/static/[...]"], cowboy_static, [
-                        {directory, {priv_dir, basic, [<<"static">>]}},
+                        {directory, {priv_dir, como, [<<"static">>]}},
                         {mimetypes, {fun mimetypes:path_to_mimes/2, default}}
             ]}
 

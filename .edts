@@ -1,0 +1,3 @@
+:node "como"
+:node-sname "como_sname"
+:lib-dirs '("deps")

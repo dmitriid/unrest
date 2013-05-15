@@ -20,24 +20,27 @@ index_(<<"GET">>, [], _Extra, Req) ->
     {ok, [{<<"session_param">>, giallo_session:get(<<"X">>, Req)}, Req]};
 
 index_(<<"POST">>, [], _Extra, Req) ->
-  Z = case giallo:post_param(<<"oi">>, Req) of
-        Val -> process(Val);
-        _   -> ""
-      end,
-  {ok, [{<<"oi">>, Z}]}.
+  Val = giallo:post_param(<<"rawText">>, Req, <<"">>, infinity),
+  Rendered = process(Val),
+  io:format("here~n~p~n", [Req]),
+  {output, Rendered}.
 
 
 process(Val) ->
-%%  io:format("===============~n~p~n====================", [Val]),
+%  io:format("===============~n~p~n====================", [Val]),
   F = fun(File) ->
-          file:write_file(File, [Val]),
+          file:write_file(File, [Val], [binary, raw]),
+          file:copy(File, filename:join([code:priv_dir(como), "a.txt"])),
           Path = filename:join([code:priv_dir(como), "run_pandoc.sh"]),
           Cmd = [ Path
-                , File
+                  , File
                 ],
-          {0, Data} = mochiweb_util:cmd_status(Cmd),
-          io:format("===============~n~p~n====================", [Val]),
-          Data
+          case mochiweb_util:cmd_status(Cmd) of
+            {0, Data} ->
+              Data;
+            Other     ->
+              io_lib:format("~p", [Other])
+          end
       end,
-  {ok, D} = tulib_fs:with_temp_file(F),
-  D.
+  {ok, Result} = tulib_fs:with_temp_file(F),
+  Result.

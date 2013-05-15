@@ -6,5 +6,4 @@
               {mod,{como_app,[]}},
               {env,[]},
               {modules,[como,como_app,como_sup,index_handler,
-                        index_handler_index__dtl,index_handler_index_dtl,
-                        mochiweb_util]}]}.
+                        index_handler_index__dtl,mochiweb_util]}]}.
