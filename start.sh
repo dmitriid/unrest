@@ -1,3 +1,7 @@
 #/bin/sh
 
-erl -pa ./../como/ebin -pa ./../como/deps/*/ebin
+pushd `dirname $0` > /dev/null
+PWD=`pwd`
+popd > /dev/null
+
+erl -pa $PWD/ebin $PWD/deps/*/ebin -s unrest

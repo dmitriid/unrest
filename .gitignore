@@ -6,3 +6,6 @@ deps
 deps/*
 rebar
 .DS_Store
+*.dump
+priv/logs/*
+log

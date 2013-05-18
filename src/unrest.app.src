@@ -1,0 +1,24 @@
+{ application
+, unrest
+, [ {description, ""}
+  , {vsn, "1"}
+  , {registered, []}
+  , {applications, [ kernel
+                   , stdlib
+                   , cowboy
+                   , giallo
+                   ]
+    }
+  , {mod, {unrest_app, []}}
+  , {env, []}
+  , {lager, [
+             {handlers, [
+                         {lager_console_backend, info},
+                         {lager_file_backend, [ {file, "priv/logs/error.log"}
+                                              , {level, error}]},
+                         {lager_file_backend, [ {file, "priv/logs/info.log"}
+                                              , {level, info}]}
+                        ]}
+            ]}
+  ]
+}.
