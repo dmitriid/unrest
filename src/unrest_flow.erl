@@ -36,6 +36,9 @@
         , run/2
         ]).
 
+%%_* Includes ==================================================================
+-include_lib("eunit/include/eunit.hrl").
+
 %%_* Types =====================================================================
 -type service_spec() ::   {Module::atom(), Function::atom()}
                         | fun().
@@ -52,11 +55,25 @@ run(List) ->
 -spec run([service_spec()], unrest_context:context()) ->
                                                  {ok, unrest_context:context()}.
 run([], Context) ->
-  Context;
+  {ok, Context};
 run([{Module, Fun} | Rest], Context) when is_atom(Module), is_atom(Fun) ->
-  handle_result(Module:Fun(Context), Rest);
+  {ok, Ctx} = unrest_context:callstack_push({Module, Fun}, Context),
+  try
+    handle_result(Module:Fun(Context), Rest)
+  catch
+    Error:Reason ->
+      {ok, Ctx1} = unrest_context:errors_push({Error, Reason}, Ctx),
+      {ok, Ctx1}
+  end;
 run([Fun | Rest], Context) when is_function(Fun, 1) ->
-  handle_result(Fun(Context), Rest).
+  {ok, Ctx} = unrest_context:callstack_push(Fun, Context),
+  try
+    handle_result(Fun(Context), Rest)
+  catch
+    Error:Reason ->
+      {ok, Ctx1} = unrest_context:errors_push({Error, Reason}, Ctx),
+      {ok, Ctx1}
+  end.
 
 %%_* Internal ==================================================================
 -spec handle_result(flow_result(), [service_spec()]) ->
@@ -64,12 +81,12 @@ run([Fun | Rest], Context) when is_function(Fun, 1) ->
 handle_result({ok, Context}, Rest) ->
   run(Rest, Context);
 handle_result({error, Context, Error}, Rest) ->
-  UpdatedContext = unrest_context:add_error(Error, Context),
+  {ok, UpdatedContext} = unrest_context:errors_push(Error, Context),
   run(Rest, UpdatedContext);
 handle_result({stop_flow, Context}, _) ->
   {ok, Context};
 handle_result({stop_flow, Context, Error}, _) ->
-  unrest_context:add_error(Error, Context).
+  unrest_context:errors_push(Error, Context).
 
 %%% Local Variables:
 %%% erlang-indent-level: 2
