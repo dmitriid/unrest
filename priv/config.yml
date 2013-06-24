@@ -1,0 +1,12 @@
+unrest configuration file
+---
+- path: /
+  method: GET
+  flow:
+    unrest_service: output_get
+
+- path: /
+  method: POST
+  flow:
+    unrest_service: output_post
+    unrest_service: output_get

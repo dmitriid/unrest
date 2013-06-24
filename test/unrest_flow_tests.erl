@@ -5,6 +5,7 @@
 %%% @copyright 2013 Klarna AB, API team
 %%%=============================================================================
 -module(unrest_flow_tests).
+-compile(export_all).
 
 %%_* Includes ==================================================================
 -include_lib("eunit/include/eunit.hrl").
@@ -14,19 +15,142 @@ run_single_success_test_() ->
   [ { "Run flow with single module"
     , fun test_single_module_run_1/0
     }
+  , { "Run flow with single function"
+    , fun test_single_function_run_1/0
+    }
+  ].
+
+run_single_error_test_() ->
+  [ { "Run flow with single module, produce error"
+    , fun test_err_single_module_run_1/0
+    }
+  , { "Run flow with single function, produce error"
+    , fun test_err_single_function_run_1/0
+    }
+  ].
+
+run_single_stop_flow_test_() ->
+  [ { "Run flow with single module, stop flow"
+    , fun test_stop_single_module_run_1/0
+    }
+  , { "Run flow with single function, stop flow"
+    , fun test_stop_single_function_run_1/0
+    }
+  ].
+
+run_single_stop_flow_error_test_() ->
+  [ { "Run flow with single module, stop flow, produce error"
+    , fun test_stop_err_single_module_run_1/0
+    }
+  , { "Run flow with single function, stop flow, produce error"
+    , fun test_stop_err_single_function_run_1/0
+    }
+  ].
+
+run_flow_test_() ->
+  [ { "Run flow with success, error, success"
+    , fun test_success_error_success_run_1/0
+    }
+  , { "Run flow with success, stop_flow, success"
+    , fun test_success_stop_success_run_1/0
+    }
+  , { "Run flow with success, stop_flow error, success"
+    , fun test_success_stop_error_success_run_1/0
+    }
   ].
 
 %%_* Test implementations ======================================================
 
 test_single_module_run_1() ->
   Ctx0 = unrest_context:new(),
-  Result = unrest_flow:run([ {?MODULE, unrest_context_success}
+  Result = unrest_flow:run([ {?MODULE, update_context_success}
                            ]
                            , Ctx0),
+  assert_flow(Result, false, success).
+
+test_single_function_run_1() ->
+  Ctx0 = unrest_context:new(),
+  Result = unrest_flow:run([ fun update_context_success/1
+                           ]
+                           , Ctx0),
+  assert_flow(Result, false, success).
+
+test_err_single_module_run_1() ->
+  Ctx0 = unrest_context:new(),
+  Result = unrest_flow:run([ {?MODULE, update_context_error}
+                           ]
+                           , Ctx0),
+  assert_flow(Result, true, update_error).
+
+test_err_single_function_run_1() ->
+  Ctx0 = unrest_context:new(),
+  Result = unrest_flow:run([ fun update_context_error/1
+                           ]
+                           , Ctx0),
+  assert_flow(Result, true, update_error).
+
+test_stop_single_module_run_1() ->
+  Ctx0 = unrest_context:new(),
+  Result = unrest_flow:run([ {?MODULE, update_context_stop_flow}
+                           ]
+                           , Ctx0),
+  assert_flow(Result, false, stop_flow).
+
+test_stop_single_function_run_1() ->
+  Ctx0 = unrest_context:new(),
+  Result = unrest_flow:run([ fun update_context_stop_flow/1
+                           ]
+                           , Ctx0),
+  assert_flow(Result, false, stop_flow).
+
+test_stop_err_single_module_run_1() ->
+  Ctx0 = unrest_context:new(),
+  Result = unrest_flow:run([ {?MODULE, update_context_stop_flow_error}
+                           ]
+                           , Ctx0),
+  assert_flow(Result, true, stop_flow_error).
+
+test_stop_err_single_function_run_1() ->
+  Ctx0 = unrest_context:new(),
+  Result = unrest_flow:run([ fun update_context_stop_flow_error/1
+                           ]
+                           , Ctx0),
+  assert_flow(Result, true, stop_flow_error).
+
+test_success_error_success_run_1() ->
+  Ctx0 = unrest_context:new(),
+  Result = unrest_flow:run([ fun update_context_success/1
+                           , fun update_context_error/1
+                           , fun update_context_success/1
+                           ]
+                           , Ctx0),
+  assert_flow(Result, true, success).
+
+test_success_stop_success_run_1() ->
+  Ctx0 = unrest_context:new(),
+  Result = unrest_flow:run([ fun update_context_success/1
+                           , fun update_context_stop_flow/1
+                           , fun update_context_success/1
+                           ]
+                           , Ctx0),
+  assert_flow(Result, false, stop_flow).
+
+test_success_stop_error_success_run_1() ->
+  Ctx0 = unrest_context:new(),
+  Result = unrest_flow:run([ fun update_context_success/1
+                           , fun update_context_stop_flow_error/1
+                           , fun update_context_success/1
+                           ]
+                           , Ctx0),
+  assert_flow(Result, true, stop_flow_error).
+
+%%_* Asserts ===================================================================
+
+assert_flow(Result, IsErrorState, UpdatedValue)->
   ?assertMatch({ok, _}, Result),
   {ok, Ctx} = Result,
-  ?assertEqual(false, unrest_context:is_error_state(Ctx)),
-  ?assertEqual({ok, success}, unrest_context:get(test, Ctx)).
+  ?assertEqual(IsErrorState, unrest_context:is_error_state(Ctx)),
+  ?assertEqual({ok, UpdatedValue}, unrest_context:get(test, Ctx)).
 
 %%_* Exported funtions used by the module ======================================
 

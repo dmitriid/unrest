@@ -10,4 +10,5 @@ start() ->
     ok = application:start(cowboy),
     ok = application:start(giallo),
     ok = application:start(lager),
+    ok = application:start(yamerl),
     ok = application:start(unrest).

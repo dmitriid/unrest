@@ -36,9 +36,6 @@
         , run/2
         ]).
 
-%%_* Includes ==================================================================
--include_lib("eunit/include/eunit.hrl").
-
 %%_* Types =====================================================================
 -type service_spec() ::   {Module::atom(), Function::atom()}
                         | fun().
@@ -47,6 +44,8 @@
                         | {error,     unrest_context:context(), Error::any()}
                         | {stop_flow, unrest_context:context()              }
                         | {stop_flow, unrest_context:context(), Error::any()}.
+
+-export_type([flow_result/0]).
 %%_* API =======================================================================
 -spec run([service_spec()]) -> {ok, unrest_context:context()}.
 run(List) ->
