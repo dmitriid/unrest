@@ -1,12 +1,11 @@
 unrest configuration file
 ---
-- path: /
-  method: GET
-  flow:
-    unrest_service: output_get
-
-- path: /
-  method: POST
-  flow:
-    unrest_service: output_post
-    unrest_service: output_get
+- /:
+    GET:
+      Content-Type: application/vnd.klarna.backoffice.accounts-v1+json
+      Accept:
+      __flow__: &regular_flow
+        unrest_service: output_post
+        unrest_service: output_get
+    POST: index_handler
+    PATCH: *regular_flow

@@ -7,19 +7,18 @@
 -module(unrest_config).
 
 %%_* Exports ===================================================================
--export([ get_flow/2
-        , get_flow/3
+-export([ get_dispatch/0
         ]).
 
 %%_* API =======================================================================
--spec get_flow(string(), binary()) -> unrest_flow:flow().
-get_flow(Path, Method) ->
-  get_flow(Path, Method, <<>>).
-get_flow(Path, Method, ContentType) ->
-  Flows = get_config(),
-  io:format("Flows: ~p~n", [Flows]),
-  Flow = proplists:get_value({Path, Method, ContentType}, Flows),
-  unrest_flow:run(Flow).
+-spec get_dispatch() -> unrest_flow:flow().
+get_dispatch() ->
+  Config = get_config(),
+  DispatchList = get_dispatches(Config),
+  [
+   %% {HostMatch, list({PathMatch, Handler, Opts})}
+   {'_', DispatchList}
+  ].
 
 %%_* Internal===================================================================
 -spec get_config() -> list().
@@ -27,27 +26,34 @@ get_config() ->
   File   = filename:join([code:priv_dir(unrest), "config.yml"]),
   Result = yamerl_constr:file(File),
   Mappings = case Result of
-               [_Document, M] -> M;
-               [Map]          -> Map
+               [_Document, [M]] -> M;
+               [[Map]]          -> Map
              end,
-  get_config(Mappings, []).
+  io:format("MAPPINGS ~n~p~n", [Mappings]),
+  Mappings.
 
-get_config([], Acc) ->
-  orddict:from_list(Acc);
-get_config([Config | Rest], Acc) ->
-  Path        = list_to_binary(proplists:get_value("path", Config, "")),
-  Method      = list_to_binary(proplists:get_value("method", Config, "")),
-  ContentType = list_to_binary(proplists:get_value("content-type", Config, "")),
-  Flow        = parse_flow(proplists:get_value("flow", Config)),
-  get_config(Rest, [{{Path, Method, ContentType}, Flow} | Acc]).
+-spec get_dispatches(list()) -> cowboy_router:dispatch_rules().
+get_dispatches(Config) ->
+  get_dispatches(Config, []).
 
-parse_flow(Flow) ->
-  parse_flow(Flow, []).
-
-parse_flow([], Acc) ->
+-spec get_dispatches(list(), list()) -> cowboy_router:dispatch_rules().
+get_dispatches([], Acc) ->
   lists:reverse(Acc);
-parse_flow([{M, F} | Rest], Acc) ->
-  parse_flow(Rest, [{list_to_atom(M), list_to_atom(F)} | Acc]).
+get_dispatches([{Path, Options} | Rest], Acc) ->
+  Opts = [{list_to_binary(Key), handle_list(List)} || {Key, List} <- Options],
+  Dispatch = {Path, unrest_handler, Opts},
+  get_dispatches(Rest, [Dispatch | Acc]).
+
+%%
+%% @doc Whe might want to handle a request exclusively ourselves, so instead of
+%%      a list of options we pass in module name
+%%
+-spec handle_list(proplists:proplist()) -> proplists:proplist();
+                 (string())             -> atom().
+handle_list([{_, _}|_] = List) ->
+  List;
+handle_list(List) when is_list(List) ->
+  list_to_atom(List).
 
 %%% Local Variables:
 %%% erlang-indent-level: 2

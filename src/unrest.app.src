@@ -6,11 +6,9 @@
   , {applications, [ kernel
                    , stdlib
                    , cowboy
-                   , giallo
                    ]
     }
   , {mod, {unrest_app, []}}
-  , {env, []}
   , {lager, [
              {handlers, [
                          {lager_console_backend, info},
@@ -20,5 +18,9 @@
                                               , {level, info}]}
                         ]}
             ]}
+ , {env, [ {acceptors, 100}
+         , {port, 8080}
+         ]
+   }
   ]
 }.
