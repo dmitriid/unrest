@@ -4,10 +4,25 @@ unrest configuration file
     GET:
       Content-Type: application/vnd.klarna.backoffice.accounts-v1+json
       Accept:
-      __flow__: &regular_flow
+      __flow__:
         unrest_service: output_post
         unrest_service: output_get
         unrest_service: do_output
     POST: index_handler
     PATCH:
-      __flow__: *regular_flow
+      __flow__:
+        __flow__: PATCH_flow
+        unrest_service:
+          - output_post
+          - do_output
+
+
+__flows__:
+  GET_flow:
+    unrest_service: output_get
+    unrest_service: do_output
+  PATCH_flow:
+    unrest_service: output_get
+    unrest_service: do_output
+  AUTH_flow:
+    unrest_service: do_output
