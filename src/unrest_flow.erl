@@ -26,6 +26,10 @@
 %%%                         unrest_context:is_error_state/1 will return true
 %%%                         unrest_context:errors/1 will return the error list
 %%%
+%%%          {respond, Req::cowboy_req::req()}
+%%%                     Interrupt the flow and return response to the client.
+%%%                     Use cowboy_req:reply/2,3,4 to produce Req
+%%%
 %%% @author Dmitrii Dimandt <dmitrii@dmitriid.com>
 %%% @copyright 2013 Klarna AB, API team
 %%%=============================================================================
@@ -43,9 +47,11 @@
 -type flow_result()  ::   {ok,        unrest_context:context()              }
                         | {error,     unrest_context:context(), Error::any()}
                         | {stop_flow, unrest_context:context()              }
-                        | {stop_flow, unrest_context:context(), Error::any()}.
+                        | {stop_flow, unrest_context:context(), Error::any()}
+                        | {respond,   cowboy_req:req()                      }.
 
 -export_type([flow_result/0]).
+
 %%_* API =======================================================================
 -spec run([service_spec()]) -> {ok, unrest_context:context()}.
 run(List) ->
@@ -57,8 +63,9 @@ run([], Context) ->
   {ok, Context};
 run([{Module, Fun} | Rest], Context) when is_atom(Module), is_atom(Fun) ->
   {ok, Ctx} = unrest_context:callstack_push({Module, Fun}, Context),
+  io:format("~n==========Ctx~n~p~n=========~n~n", [Ctx]),
   try
-    handle_result(Module:Fun(Context), Rest)
+    handle_result(Module:Fun(Ctx), Rest)
   catch
     Error:Reason ->
       {ok, Ctx1} = unrest_context:errors_push({Error, Reason}, Ctx),
@@ -67,7 +74,7 @@ run([{Module, Fun} | Rest], Context) when is_atom(Module), is_atom(Fun) ->
 run([Fun | Rest], Context) when is_function(Fun, 1) ->
   {ok, Ctx} = unrest_context:callstack_push(Fun, Context),
   try
-    handle_result(Fun(Context), Rest)
+    handle_result(Fun(Ctx), Rest)
   catch
     Error:Reason ->
       {ok, Ctx1} = unrest_context:errors_push({Error, Reason}, Ctx),
@@ -77,7 +84,10 @@ run([Fun | Rest], Context) when is_function(Fun, 1) ->
 %%_* Internal ==================================================================
 -spec handle_result(flow_result(), [service_spec()]) ->
                                                   {ok, unrest_context:context()}.
+handle_result({respond, Req}, _) ->
+  {ok, Req};
 handle_result({ok, Context}, Rest) ->
+  io:format("~n==========PreRunCtx~n~p~n=========~n~n", [Context]),
   run(Rest, Context);
 handle_result({error, Context, Error}, Rest) ->
   {ok, UpdatedContext} = unrest_context:errors_push(Error, Context),

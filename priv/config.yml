@@ -7,5 +7,7 @@ unrest configuration file
       __flow__: &regular_flow
         unrest_service: output_post
         unrest_service: output_get
+        unrest_service: do_output
     POST: index_handler
-    PATCH: *regular_flow
+    PATCH:
+      __flow__: *regular_flow

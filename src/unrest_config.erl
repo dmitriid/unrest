@@ -29,7 +29,7 @@ get_config() ->
                [_Document, [M]] -> M;
                [[Map]]          -> Map
              end,
-  io:format("MAPPINGS ~n~p~n", [Mappings]),
+  io:format("MAPPINGS ~n~p~n~n~n", [Mappings]),
   Mappings.
 
 -spec get_dispatches(list()) -> cowboy_router:dispatch_rules().
@@ -51,9 +51,21 @@ get_dispatches([{Path, Options} | Rest], Acc) ->
 -spec handle_list(proplists:proplist()) -> proplists:proplist();
                  (string())             -> atom().
 handle_list([{_, _}|_] = List) ->
-  List;
+  [transform(E) || E <- List];
 handle_list(List) when is_list(List) ->
   list_to_atom(List).
+
+
+transform({"__flow__", List}) ->
+  Flow = [{list_to_atom(K), list_to_atom(V)} || {K, V} <- List],
+  {<<"__flow__">>, Flow};
+transform({K, V}) ->
+  {transform(K), transform(V)};
+transform(S) when is_list(S) ->
+  list_to_binary(S);
+transform(V) ->
+  V.
+
 
 %%% Local Variables:
 %%% erlang-indent-level: 2
