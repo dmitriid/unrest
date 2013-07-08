@@ -7,9 +7,4 @@ unrest
 4. ./start.sh or ./start-debug.sh
 5. works via http://localhost:8080
 
-Try
-- http://localhost:8080/internal/errands/not_found
-- http://localhost:8080/internal/errands/conflict
-- http://localhost:8080/internal/errands/<any_id>
-
-See what statuses are returned for those
+Go to http://localhost:8080/ and see the debug messages scroll by in the shell :)
