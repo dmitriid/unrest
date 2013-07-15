@@ -18,34 +18,37 @@
     ,Req :: cowboy_req:req()
     ,Env :: cowboy_middleware:env().
 execute(Req, Env) ->
-  io:format("Req ~p~n, Env ~p~n", [Req, Env]),
-  {handler, Handler}        = lists:keyfind(handler, 1, Env),
   {handler_opts, Arguments} = lists:keyfind(handler_opts, 1, Env),
-  io:format("Handler ~p~n, Args ~p~n", [Handler, Arguments]),
   handle_request(Arguments, Req, Env).
 
 
 %%_* Internal ==================================================================
 
-handle_request(Config, Req, Env) ->
-  io:format("~n~nConfig ~p~nMethod~p~n~n~n", [Config, cowboy_req:method(Req)]),
+handle_request(Options, Req, Env) ->
+  Config = proplists:get_value(config, Options),
+  Flows  = proplists:get_value(flows, Options),
   {Method, _} = cowboy_req:method(Req),
-  run_flow(proplists:get_value(Method, Config), Req, Env).
+  MethodOptions = proplists:get_value(Method, Config),
+  run_flow(MethodOptions, Req, Env, Flows).
 
-run_flow(undefined, Req, _Env) ->
+run_flow(undefined, Req, _Env, _Flows) ->
   {ok, Req2} = cowboy_req:reply(400, [], "Invalid request!", Req),
   {halt, Req2};
-run_flow(Module, Req, Env0) when is_atom(Module) ->
-  Env = lists:keyreplace(habdler, 1, Env0, {handler, Module}),
+run_flow(Module, Req, Env0, _Flows) when is_atom(Module) ->
+  Env = lists:keyreplace(handler, 1, Env0, {handler, Module}),
   {ok, Req, Env};
-run_flow(Options, Req0, Env0) ->
+run_flow(Options, Req0, Env0, Flows) ->
   case proplists:get_value(<<"__flow__">>, Options) of
     Module when is_atom(Module) ->
       Env = lists:keyreplace(habdler, 1, Env0, {handler, Module}),
       {ok, Req0, Env};
     Flow when is_list(Flow) ->
-      Data = [E || E = {K, _} <- Options, K /= <<"__flow__">>],
-      Ctx = unrest_context:new([{data, Data}, {req, Req0}]),
+      io:format("FLOW ~p~n~n~n", [Flow]),
+      Config = [E || E = {K, _} <- Options, K /= <<"__flow__">>],
+      Ctx = unrest_context:new([ {req, Req0}
+                               , {flows, Flows}
+                               | Config
+                               ]),
       {ok, Req} = unrest_flow:run(Flow, Ctx),
       {halt, Req}
   end.

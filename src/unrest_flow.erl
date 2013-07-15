@@ -26,6 +26,10 @@
 %%%                         unrest_context:is_error_state/1 will return true
 %%%                         unrest_context:errors/1 will return the error list
 %%%
+%%%          {flow, FlowName:binary(), unrest_context:context()}
+%%%                     Run the FlowName named flow. This flow must exist in the
+%%%                     flows proplist in the context
+%%%
 %%%          {respond, Req::cowboy_req::req()}
 %%%                     Interrupt the flow and return response to the client.
 %%%                     Use cowboy_req:reply/2,3,4 to produce Req
@@ -63,7 +67,6 @@ run([], Context) ->
   {ok, Context};
 run([{Module, Fun} | Rest], Context) when is_atom(Module), is_atom(Fun) ->
   {ok, Ctx} = unrest_context:callstack_push({Module, Fun}, Context),
-  io:format("~n==========Ctx~n~p~n=========~n~n", [Ctx]),
   try
     handle_result(Module:Fun(Ctx), Rest)
   catch
@@ -84,10 +87,21 @@ run([Fun | Rest], Context) when is_function(Fun, 1) ->
 %%_* Internal ==================================================================
 -spec handle_result(flow_result(), [service_spec()]) ->
                                                   {ok, unrest_context:context()}.
+handle_result({flow, FlowName, Context}, _) ->
+  Flows = unrest_context:get(flows, Context),
+  case Flows of
+    [_] ->
+      Flow = unrest_context:get(FlowName, Flows),
+      case Flow of
+        [_] -> run(Flow, Context);
+        _   -> error({undefined_flow, FlowName})
+      end;
+    _   ->
+      error({undefined_flow, FlowName})
+  end;
 handle_result({respond, Req}, _) ->
   {ok, Req};
 handle_result({ok, Context}, Rest) ->
-  io:format("~n==========PreRunCtx~n~p~n=========~n~n", [Context]),
   run(Rest, Context);
 handle_result({error, Context, Error}, Rest) ->
   {ok, UpdatedContext} = unrest_context:errors_push(Error, Context),

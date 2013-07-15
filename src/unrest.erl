@@ -1,19 +1,25 @@
 -module(unrest).
 
--export([start/0]).
+-export([ start/0
+        , start/1
+        ]).
 
 %% API ------------------------------------------------------------------------
 
 start() ->
+  File = filename:join([code:priv_dir(unrest), "config.yml"]),
+  start(File).
+
+start(File) ->
   ok = application:start(crypto),
   ok = application:start(ranch),
   ok = application:start(cowboy),
   ok = application:start(lager),
   ok = application:start(yamerl),
   ok = application:start(unrest),
-  start_cowboy().
+  start_cowboy(File).
 
-start_cowboy() ->
+start_cowboy(File) ->
   %% Dispatch = [ {'_'
   %%              , [ {"/", index_handler, []}
   %%                , {"/:test", index_handler, []}
@@ -28,7 +34,7 @@ start_cowboy() ->
   %%                ]
   %%              }
   %%            ],
-  Dispatch = unrest_config:get_dispatch(),
+  Dispatch = unrest_config:get_dispatch(File),
   CompiledDispatch = cowboy_router:compile(Dispatch),
 
   Env = [],

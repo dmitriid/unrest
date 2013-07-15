@@ -8,12 +8,18 @@
 
 %%_* Exports ===================================================================
 -export([ get_dispatch/0
+        , get_dispatch/1
         ]).
 
 %%_* API =======================================================================
 -spec get_dispatch() -> unrest_flow:flow().
 get_dispatch() ->
-  Config = get_config(),
+  File = filename:join([code:priv_dir(unrest), "config.yml"]),
+  get_dispatch(File).
+
+-spec get_dispatch(string()) -> unrest_flow:flow().
+get_dispatch(File) ->
+  Config = get_config(File),
   DispatchList = get_dispatches(Config),
   [
    %% {HostMatch, list({PathMatch, Handler, Opts})}
@@ -21,15 +27,13 @@ get_dispatch() ->
   ].
 
 %%_* Internal===================================================================
--spec get_config() -> list().
-get_config() ->
-  File   = filename:join([code:priv_dir(unrest), "config.yml"]),
+-spec get_config(string()) -> list().
+get_config(File) ->
   Result = yamerl_constr:file(File),
   Mappings = case Result of
                [_Document, M] -> M;
                Map            -> Map
              end,
-  io:format("MAPPINGS ~n~p~n~n~n", [Mappings]),
   Mappings.
 
 -spec get_dispatches(list()) -> cowboy_router:dispatch_rules().
@@ -42,14 +46,12 @@ get_dispatches([], _, Acc) ->
   lists:reverse(Acc);
 get_dispatches([{Path, Options} | Rest], Flows, Acc) ->
   Opts = handle_methods(Options, Flows),
-  Dispatch = {Path, unrest_handler, Opts},
+  Dispatch = {Path, unrest_handler, [{config, Opts}, {flows, Flows}]},
   get_dispatches(Rest, Flows, [Dispatch | Acc]).
 
 get_named_flows(Config0) ->
   {_, Flows0} = lists:keyfind("__flows__", 1, Config0),
-  io:format("Flows ~p~n~n~n", [Flows0]),
   Flows1 = expand_flows(Flows0),
-  io:format("Expanded Flows ~p~n~n~n", [Flows1]),
   Config = lists:keydelete("__flows__", 1, Config0),
   {Flows1, Config}.
 
@@ -107,7 +109,6 @@ handle_method({Method, List}, Flows) ->
   end.
 
 handle_options(Options, Flows) ->
-  io:format("OPTIONS ~p~n~n~n", [Options]),
   [handle_option(Option, Flows) || Option <- Options].
 
 handle_option({"__flow__", Flow0}, ExpandedFlows) ->
