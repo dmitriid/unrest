@@ -1,22 +1,35 @@
-# unrest
+# What?
 
-_unrest_ is a dumb and simple to define your own way of handling requests coming
-from the browser. You define a chain of functions to execute and let _unrest_
-process them.
+**Status: alpha approaching beta. Most of the functionality is in place,
+tests needed**
 
-**Status: alpha approaching beta. All functionality in place, tests needed**
+Are you stuck with implementing the same functions over and over again for
+Webmachine and can't find a flow for PATCH on
+[their diagram](https://raw.github.com/wiki/basho/webmachine/images/http-headers-status-v3.png)?
+Do you want to implement Andrei Neculau's [Hypermedia Diagram](https://raw.github.com/andreineculau/http-decision-diagram/master/v4/http-decision-diagram-v4.png)
+over Cowboy's [REST handler](http://ninenines.eu/docs/en/cowboy/HEAD/guide/rest_handlers)
+but can't wrap your head around and can't extend it's execution flow?
 
+Don't fret, _unrest_ is here to rescue you.
 
-1. get rebar
-2. `rebar get-deps`
-3. `rebar compile`
-4. `./start.sh` or `./start-debug.sh`
-5. works via `http://localhost:8080`
+_unrest_ allows you to define your own execution flows, tailored to your needs.
+If you're smart or lucky enough, you'll be able to control and change the behaviour
+of your entire application just by moving lines around in a config file.
 
-Go to [http://localhost:8080/](http://localhost:8080/) and see the debug
+# Gimme quickstart
+
+1. Get rebar
+2. `clone https://github.com/dmitriid/unrest && cd unrest`
+3. `rebar get-deps`
+4. `rebar compile`
+5. `./start.sh` or `./start-debug.sh`
+6. Go to [http://localhost:8080/](http://localhost:8080/) and see the debug
 messages scroll by in the shell :)
 
-# Can I use it from my app?
+The flows are defined in [priv/config.yml](https://github.com/dmitriid/unrest/blob/master/priv/config.yml).
+A dummy handler for these flows is implemented in [src/unrest_service.erl](https://github.com/dmitriid/unrest/blob/master/src/unrest_service.erl)
+
+## Can I use it from my app?
 
 Yes. Include _unrest_ in your app and call
 `unrest:start(path_to_config_file)`. You're set and ready to go.
