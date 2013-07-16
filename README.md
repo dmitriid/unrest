@@ -1,7 +1,7 @@
 # What?
 
 **Status: alpha approaching beta. Most of the functionality is in place,
-tests needed**
+tests needed** [![Build Status](https://travis-ci.org/dmitriid/unrest.png)](https://travis-ci.org/dmitriid/unrest)
 
 Are you stuck with implementing the same functions over and over again for
 Webmachine and can't find a flow for PATCH on
