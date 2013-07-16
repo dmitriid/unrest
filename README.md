@@ -6,7 +6,7 @@ tests needed**
 Are you stuck with implementing the same functions over and over again for
 Webmachine and can't find a flow for PATCH on
 [their diagram](https://raw.github.com/wiki/basho/webmachine/images/http-headers-status-v3.png)?
-Do you want to implement Andrei Neculau's [Hypermedia Diagram](https://raw.github.com/andreineculau/http-decision-diagram/master/v4/http-decision-diagram-v4.png)
+Do you want to implement Andrei Neculau's [H^2 (Huge HTTP) Diagram](https://raw.github.com/andreineculau/http-decision-diagram/master/v4/http-decision-diagram-v4.png)
 over Cowboy's [REST handler](http://ninenines.eu/docs/en/cowboy/HEAD/guide/rest_handlers)
 but can't wrap your head around and can't extend it's execution flow?
 
