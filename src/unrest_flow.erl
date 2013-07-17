@@ -44,6 +44,8 @@
         , run/2
         ]).
 
+-compile([{parse_transform, lager_transform}]).
+
 %%_* Types =====================================================================
 -type service_spec() ::   {Module::atom(), Function::atom()}
                         | fun().
@@ -71,6 +73,9 @@ run([{Module, Fun} | Rest], Context) when is_atom(Module), is_atom(Fun) ->
     handle_result(Module:Fun(Ctx), Rest)
   catch
     Error:Reason ->
+      lager:error( "Try/catch triggered in flow. Error: ~p:~p. Callstack: ~p"
+                     , [Error, Reason, unrest_context:callstack(Context)]
+                 ),
       {ok, Ctx1} = unrest_context:errors_push({Error, Reason}, Ctx),
       {ok, Ctx1}
   end;
@@ -80,6 +85,9 @@ run([Fun | Rest], Context) when is_function(Fun, 1) ->
     handle_result(Fun(Ctx), Rest)
   catch
     Error:Reason ->
+      lager:error( "Try/catch triggered in flow. Error: ~p:~p. Callstack: ~p"
+                     , [Error, Reason, unrest_context:callstack(Context)]
+                 ),
       {ok, Ctx1} = unrest_context:errors_push({Error, Reason}, Ctx),
       {ok, Ctx1}
   end.
@@ -97,6 +105,9 @@ handle_result({flow, FlowName, Context}, _) ->
         _   -> error({undefined_flow, FlowName})
       end;
     _   ->
+      lager:error( "Undefined flow ~p. Callstack: ~p"
+                 , [FlowName, unrest_context:callstack(Context)]
+                 ),
       error({undefined_flow, FlowName})
   end;
 handle_result({respond, Req}, _) ->
@@ -104,11 +115,17 @@ handle_result({respond, Req}, _) ->
 handle_result({ok, Context}, Rest) ->
   run(Rest, Context);
 handle_result({error, Context, Error}, Rest) ->
+  lager:warning( "Non-critical error in flow. Error: ~p. Callstack: ~p"
+               , [Error, unrest_context:callstack(Context)]
+             ),
   {ok, UpdatedContext} = unrest_context:errors_push(Error, Context),
   run(Rest, UpdatedContext);
 handle_result({stop_flow, Context}, _) ->
   {ok, Context};
 handle_result({stop_flow, Context, Error}, _) ->
+  lager:error( "Flow stopped due to error. Error: ~p. Callstack: ~p"
+             , [Error, unrest_context:callstack(Context)]
+             ),
   unrest_context:errors_push(Error, Context).
 
 %%% Local Variables:
