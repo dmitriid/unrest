@@ -2,7 +2,7 @@ unrest configuration file
 ---
 /:
   GET:
-    Content-Type: application/vnd.klarna.backoffice.accounts-v1+json
+    Content-Type: application/vnd.dmitriid.example.mediatype-v1+json
     Accept:
     __flow__:
       unrest_service: post
