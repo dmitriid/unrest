@@ -1,6 +1,6 @@
 %%%=============================================================================
 %%% @doc Flow is a list of functions called in succession. Each function is
-%%%      passed an unrest_context:context(). Possible return values form each
+%%%      passed an unrest_context:context(). Possible return values for each
 %%%      function are:
 %%%
 %%%          {ok, unrest_context:context()}
