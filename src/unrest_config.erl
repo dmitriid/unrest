@@ -5,6 +5,7 @@
 %%% @copyright 2013 Klarna AB, API team
 %%%=============================================================================
 -module(unrest_config).
+-compile([{parse_transform, lager_transform}]).
 
 %%_* Exports ===================================================================
 -export([ get_dispatch/0
@@ -120,8 +121,13 @@ get_flow_by_name(Name, NonExpanded, Expanded) ->
       {_, Flow} = expand_flow(NonExpandedFlow, NonExpanded, Expanded),
       Flow;
     _ -> case lists:keyfind(Name, 1, Expanded) of
-           {_, ExpandedFlow} -> ExpandedFlow;
-           _                 -> error({flow_not_found, Name})
+           {_, ExpandedFlow} ->
+             ExpandedFlow;
+           _                 ->
+             Flows = [E || {E, _} <- Expanded] ++ [N || {N, _} <- NonExpanded],
+             lager:error( "Undefined flow ~p in ~p. Available flows: ~p"
+                        , [Name, ?MODULE, Flows]),
+             error({flow_not_found, Name})
          end
   end.
 

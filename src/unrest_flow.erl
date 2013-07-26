@@ -38,13 +38,12 @@
 %%% @copyright 2013 Klarna AB, API team
 %%%=============================================================================
 -module(unrest_flow).
+-compile([{parse_transform, lager_transform}]).
 
 %%_* Exports ===================================================================
 -export([ run/1
         , run/2
         ]).
-
--compile([{parse_transform, lager_transform}]).
 
 %%_* Types =====================================================================
 -type service_spec() ::   {Module::atom(), Function::atom()}
