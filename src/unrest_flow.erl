@@ -58,12 +58,11 @@
 -export_type([flow_result/0]).
 
 %%_* API =======================================================================
--spec run([service_spec()]) -> {ok, unrest_context:context()}.
+-spec run([service_spec()]) -> flow_result().
 run(List) ->
   run(List, unrest_context:new()).
 
--spec run([service_spec()], unrest_context:context()) ->
-                                                 {ok, unrest_context:context()}.
+-spec run([service_spec()], unrest_context:context()) -> flow_result().
 run([], Context) ->
   {ok, Context};
 run([{Module, Fun} | Rest], Context) when is_atom(Module), is_atom(Fun) ->
@@ -93,7 +92,7 @@ run([Fun | Rest], Context) when is_function(Fun, 1) ->
 
 %%_* Internal ==================================================================
 -spec handle_result(flow_result(), [service_spec()]) ->
-                                                  {ok, unrest_context:context()}.
+                                          flow_result() | {ok, cowboy_req:req()}.
 handle_result({flow, FlowName, Context}, _) ->
   Flows = unrest_context:get(flows, Context),
   case Flows of
