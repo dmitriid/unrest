@@ -150,7 +150,9 @@ assert_flow(Result, IsErrorState, UpdatedValue)->
   ?assertMatch({ok, _}, Result),
   {ok, Ctx} = Result,
   ?assertEqual(IsErrorState, unrest_context:is_error_state(Ctx)),
-  ?assertEqual({ok, UpdatedValue}, unrest_context:get(test, Ctx)).
+  ?assertEqual({ok, UpdatedValue}, unrest_context:get(test, Ctx)),
+  {ok, Callstack} = unrest_context:callstack(Ctx),
+  ?assert(length(Callstack) > 0).
 
 %%_* Exported funtions used by the module ======================================
 
