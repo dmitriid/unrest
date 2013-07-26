@@ -1,7 +1,9 @@
 # What?
 
-**Status: alpha approaching beta. Most of the functionality is in place,
-tests needed** [![Build Status](https://travis-ci.org/dmitriid/unrest.png)](https://travis-ci.org/dmitriid/unrest)
+**Status: beta. Most of the functionality is in place,
+more tests needed** [![Build Status](https://travis-ci.org/dmitriid/unrest.png)](https://travis-ci.org/dmitriid/unrest)
+
+**[Milestone 0.1](https://github.com/dmitriid/unrest/issues/milestones) reached**
 
 Are you stuck with implementing the same functions over and over again for
 Webmachine and can't find a flow for PATCH on
