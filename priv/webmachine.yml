@@ -1,0 +1,65 @@
+"
+webmachine flow definition
+
+Based on https://raw.github.com/wiki/basho/webmachine/images/http-headers-status-v3.png
+Also see https://twitter.com/seancribbs/status/354790811973586944/photo/1
+
+How to use:
+
+
+  Copy/paste (or include, see milstone 0.3) the flow definitions below in your
+  configuration.
+
+  Provide resource_module config. param in your route.
+
+  Example:
+
+    /some/resource:
+      GET:
+        resource_module: some_resource
+        __flow__:
+          __flow__: webmachine_flow
+
+    __flows__:
+      webmachine_flow:
+      ...
+
+Given the config above, implement your resource in some_resource.erl as you would
+a regular webmachine resource. Notable differences:
+  - init/1 will be called with an unrest_context:context()
+    (not with config params) and has to return {ok, unrest_context:context()}
+  - for all other functions:
+      - Req is a cowboy_req:req()
+      - Context is unrest_context:contaxt()
+"
+---
+/:
+  GET:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
+
+
+__flows__:
+  webmachine_flow:
+    unrest_webmachine: init
+    __flow__:
+      - webmachine_validation_auth
+      - webmachine_content_negotiation
+  webmachine_validation_auth:
+    unrest_webmachine:
+      - ping
+      - v3b13_service_available
+      - v3b12_known_method
+      - v3b11_uri_too_long
+      - v3b10_method_allowed
+      - v3b9_malformed
+      - v3b8_authorized
+      - v3b7_forbidden
+      - v3b6_known_content_header
+      - v3b5_unknown_content_type
+      - v3b4_request_too_large
+      - v3b3_options
+  webmachine_content_negotiation:
+    unrest_webmachine:
+      - v3c3_accept

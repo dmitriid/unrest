@@ -70,8 +70,11 @@ run([{Module, Fun} | Rest], Context) when is_atom(Module), is_atom(Fun) ->
     handle_result(Module:Fun(Ctx), Rest)
   catch
     Error:Reason ->
-      lager:error( "Try/catch triggered in flow. Error: ~p:~p. Callstack: ~p"
-                     , [Error, Reason, unrest_context:callstack(Context)]
+      lager:error( "Try/catch triggered in flow when trying to call ~p:~p/1. "
+                   "Error: ~p:~p. Callstack: ~p"
+                 , [ Module, Fun
+                   , Error, Reason, unrest_context:callstack(Context)
+                   ]
                  ),
       {ok, Ctx1} = unrest_context:errors_push({Error, Reason}, Ctx),
       {ok, Ctx1}
@@ -82,8 +85,9 @@ run([Fun | Rest], Context) when is_function(Fun, 1) ->
     handle_result(Fun(Ctx), Rest)
   catch
     Error:Reason ->
-      lager:error( "Try/catch triggered in flow. Error: ~p:~p. Callstack: ~p"
-                     , [Error, Reason, unrest_context:callstack(Context)]
+      lager:error( "Try/catch triggered in flow when calling a fun. "
+                   "Error: ~p:~p. Callstack: ~p"
+                 , [Error, Reason, unrest_context:callstack(Context)]
                  ),
       {ok, Ctx1} = unrest_context:errors_push({Error, Reason}, Ctx),
       {ok, Ctx1}

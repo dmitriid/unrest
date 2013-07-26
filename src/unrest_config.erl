@@ -88,7 +88,7 @@ expand_flow({Key, Values0}, NonExpanded, Expanded) when is_list(Values0) ->
   Values = expand_flow_values(Values0, NonExpanded, Expanded),
   {Key, Values};
 expand_flow({Key, Module}, _, _) when is_binary(Module)->
-  {Key, binary_to_atom(Module)}.
+  {Key, unrest_util:binary_to_atom(Module)}.
 
 expand_flow_values(Values, NonExpanded, Expanded) ->
   lists:flatten([expand_flow_value(V, NonExpanded, Expanded) || V <- Values]).
@@ -108,9 +108,10 @@ expand_flow_value({<<"__flow__">>, [Name | _] = Flows}, NonExpanded, Expanded)
 expand_flow_value({<<"__flow__">>, Name}, NonExpanded, Expanded) ->
   get_flow_by_name(Name, NonExpanded, Expanded);
 expand_flow_value({Module, [Fun | _] = Funs}, _, _) when is_binary(Fun) ->
-  [{binary_to_atom(Module), binary_to_atom(F)} || F <- Funs];
+  [  {unrest_util:binary_to_atom(Module), unrest_util:binary_to_atom(F)}
+  || F <- Funs];
 expand_flow_value({Module, Fun}, _, _) ->
-  {binary_to_atom(Module), binary_to_atom(Fun)};
+  {unrest_util:binary_to_atom(Module), unrest_util:binary_to_atom(Fun)};
 expand_flow_value(F, _, _) ->
   F.
 
@@ -144,7 +145,7 @@ handle_methods(Methods, Flows) ->
 -spec handle_method({binary(), binary() | list()}, list()) ->
                                                      {binary(), atom() | list()}.
 handle_method({Method, Module}, _) when is_binary(Module) ->
-  {Method, binary_to_atom(Module)};
+  {Method, unrest_util:binary_to_atom(Module)};
 handle_method({Method, List}, Flows) when is_list(List) ->
   {Method, handle_options(List, Flows)}.
 
@@ -166,10 +167,6 @@ handle_option({<<"__flow__">>, Flow0}, ExpandedFlows) ->
 handle_option(O, _) ->
   O.
 
-%%_* Helpers ===================================================================
-binary_to_atom(B) when is_binary(B) ->
-  list_to_atom(binary_to_list(B)).
-
 %%_* Unit tests ================================================================
 -ifdef(EUNIT).
 
@@ -190,8 +187,6 @@ handle_option_test() ->
 
   Result3 = handle_option({a, b}, []),
   ?assertEqual({a, b}, Result3).
-
--endif. %% EUNIT
 
 handle_method_test() ->
   Result1 = handle_method({<<"GET">>, <<"module">>}, []),
@@ -278,6 +273,8 @@ get_configuration_test() ->
 
   Result2 = get_configuration([[mapping]]),
   ?assertEqual([mapping], Result2).
+
+-endif. %% EUNIT
 
 %%% Local Variables:
 %%% erlang-indent-level: 2
