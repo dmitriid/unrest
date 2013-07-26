@@ -34,11 +34,12 @@ get_dispatch(File) ->
 -spec get_config(string()) -> list().
 get_config(File) ->
   Result = yamerl_constr:file(File, [{str_node_as_binary, true}]),
-  Mappings = case Result of
-               [_Document, M] -> M;
-               Map            -> Map
-             end,
-  Mappings.
+  get_configuration(Result).
+
+get_configuration([Frontmatter, Mapping]) when is_binary(Frontmatter) ->
+  Mapping;
+get_configuration([Mapping]) when is_list(Mapping) ->
+  Mapping.
 
 -spec get_dispatches(list()) -> cowboy_router:dispatch_rules().
 get_dispatches(Config0) ->
@@ -265,6 +266,13 @@ get_named_flows_test() ->
 
   Result2 = get_named_flows([]),
   ?assertEqual({[], []}, Result2).
+
+get_configuration_test() ->
+  Result1 = get_configuration([<<"stuff">>, [mapping]]),
+  ?assertEqual([mapping], Result1),
+
+  Result2 = get_configuration([[mapping]]),
+  ?assertEqual([mapping], Result2).
 
 %%% Local Variables:
 %%% erlang-indent-level: 2
