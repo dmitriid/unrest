@@ -3,7 +3,7 @@
 **Status: beta. Most of the functionality is in place,
 more tests needed** [![Build Status](https://travis-ci.org/dmitriid/unrest.png)](https://travis-ci.org/dmitriid/unrest)
 
-**[Milestone 0.1](https://github.com/dmitriid/unrest/issues/milestones) reached**
+**[Milestone 0.1](https://github.com/dmitriid/unrest/issues/milestones?page=1&sort=completeness&state=closed) reached. Available [here](https://github.com/dmitriid/unrest/releases/tag/0.1)**
 
 Are you stuck with implementing the same functions over and over again for
 Webmachine and can't find a flow for PATCH on
