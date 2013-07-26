@@ -2,7 +2,6 @@
 %%% @doc Handle various configuration parameters for an unrest application
 %%%
 %%% @author Dmitrii Dimandt <dmitrii@dmitriid.com>
-%%% @copyright 2013 Klarna AB, API team
 %%%=============================================================================
 -module(unrest_config).
 -compile([{parse_transform, lager_transform}]).

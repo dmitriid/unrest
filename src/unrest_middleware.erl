@@ -2,7 +2,6 @@
 %%% @doc Unrest middleware handles the control flow
 %%%
 %%% @author Dmitrii Dimandt <dmitrii@dmitriid.com>
-%%% @copyright 2013 Klarna AB, API team
 %%%=============================================================================
 -module(unrest_middleware).
 

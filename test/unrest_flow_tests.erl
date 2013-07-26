@@ -2,7 +2,6 @@
 %%% @doc Unit tests for unrest_flow
 %%%
 %%% @author Dmitrii Dimandt <dmitrii@dmitriid.com>
-%%% @copyright 2013 Klarna AB, API team
 %%%=============================================================================
 -module(unrest_flow_tests).
 -compile(export_all).

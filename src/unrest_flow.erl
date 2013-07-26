@@ -35,7 +35,6 @@
 %%%                     Use cowboy_req:reply/2,3,4 to produce Req
 %%%
 %%% @author Dmitrii Dimandt <dmitrii@dmitriid.com>
-%%% @copyright 2013 Klarna AB, API team
 %%%=============================================================================
 -module(unrest_flow).
 -compile([{parse_transform, lager_transform}]).

@@ -2,7 +2,6 @@
 %%% @doc Context is an opaque data structure used to store lots of useful data
 %%%      That needs to be passed around during calls, chained flows etc.
 %%% @author Dmitrii Dimandt <dmitrii@dmitriid.com>
-%%% @copyright 2013 Klarna AB, API team
 %%%=============================================================================
 -module(unrest_context).
 

@@ -3,7 +3,6 @@
 %%%      outputs result that unrest_flow can understand
 %%%
 %%% @author Dmitrii Dimandt <dmitrii@dmitriid.com>
-%%% @copyright 2013 Klarna AB, API team
 %%%=============================================================================
 -module(unrest_service).
 
