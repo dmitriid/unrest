@@ -26,11 +26,7 @@ How to use:
 
 Given the config above, implement your resource in some_resource.erl as you would
 a regular webmachine resource. Notable differences:
-  - init/1 will be called with an unrest_context:context()
-    (not with config params) and has to return {ok, unrest_context:context()}
-  - for all other functions:
-      - Req is a cowboy_req:req()
-      - Context is unrest_context:contaxt()
+      - For every callback expecting a Req, it is a cowboy_req:req()
 "
 ---
 /:
