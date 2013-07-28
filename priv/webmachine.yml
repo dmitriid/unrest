@@ -53,7 +53,8 @@ __flows__:
       - v3b12_known_method
       - v3b11_uri_too_long
       - v3b10_method_allowed
-      - v3b9_malformed
+      - v3b9_content_checksum
+      - v3b9_malformed_request
       - v3b8_authorized
       - v3b7_forbidden
       - v3b6_known_content_header
