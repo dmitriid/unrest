@@ -11,12 +11,13 @@
         , ping/2
         , service_available/2
         , known_methods/2
+        , uri_too_long/2
+        , allowed_methods/2
         ]).
 
 %%_* Types =====================================================================
 
--type context() :: unrest_context:context().
--type flow_result() :: unrest_flow:flow_result().
+-type context() :: term().
 -type req() :: cowboy_req:req().
 
 %%_* API =======================================================================
@@ -24,16 +25,16 @@
 %%
 %% @doc The entry point to your resource
 %%
--spec init(context()) -> flow_result().
-init(Ctx) ->
-  {ok, Ctx}.
+-spec init(proplists:proplist()) -> {ok, context()}.
+init(_Params) ->
+  {ok, []}.
 
 %%
 %% @doc The `ping` function is optional, you don't need to implement it
 %%
 -spec ping(req(), context()) -> pong | pang.
-ping(_, _) ->
-  pong.
+ping(Req, Ctx) ->
+  {pong, Req, Ctx}.
 
 -spec service_available(req(), context()) -> pong | pang.
 service_available(Req, Ctx) ->
@@ -41,6 +42,14 @@ service_available(Req, Ctx) ->
 
 -spec known_methods(req(), context()) -> pong | pang.
 known_methods(Req, Ctx) ->
+  {[<<"GET">>], Req, Ctx}.
+
+-spec uri_too_long(req(), context()) -> pong | pang.
+uri_too_long(Req, Ctx) ->
+  {false, Req, Ctx}.
+
+-spec allowed_methods(req(), context()) -> pong | pang.
+allowed_methods(Req, Ctx) ->
   {[<<"GET">>], Req, Ctx}.
 
 %%% Local Variables:
