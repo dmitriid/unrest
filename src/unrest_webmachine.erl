@@ -23,8 +23,8 @@
         , v3b9_malformed_request/1
         , v3b8_authorized/1
         , v3b7_forbidden/1
-        , v3b6_known_content_header/1
-        , v3b5_unknown_content_type/1
+        , v3b6_valid_content_headers/1
+        , v3b5_known_content_type/1
         , v3b4_request_too_large/1
         , v3b3_options/1
         ]).
@@ -37,6 +37,11 @@
 
 -type context() :: unrest_context:context().
 -type flow_result() :: unrest_flow:flow_result().
+-type response(What) :: {What, cowboy_req:req(), term()}
+                      | {halt, integer()}
+                      | {error, term()}.
+
+-export_type([response/1]).
 
 %%_* API =======================================================================
 
@@ -118,43 +123,72 @@ v3b9_content_checksum(Ctx0) ->
 
 validate_content_checksum(MD5, Ctx0) ->
   case resource_call(validate_content_checksum, Ctx0) of
-    not_validated ->
+    {not_validated, Req, ResCtx} ->
+      {ok, Ctx1} = update_context(Req, ResCtx, Ctx0),
       Checksum = base64:decode(MD5),
-      {BodyHash, Ctx} = compute_body_md5(Ctx0),
+      {BodyHash, Ctx} = compute_body_md5(Ctx1),
       case BodyHash =:= Checksum of
         true  -> {ok, Ctx};
         false -> error_response(400, Ctx)
       end;
     {false, Req, ResCtx} ->
-      update_context(Req, ResCtx, Ctx0);
-    {true, Req, ResCtx} ->
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
       error_response(400, Ctx);
+    {true, Req, ResCtx} ->
+      update_context(Req, ResCtx, Ctx0);
     Other ->
       error_response(Other, Ctx0)
   end.
 
 -spec v3b9_malformed_request(context()) -> flow_result().
 v3b9_malformed_request(Ctx) ->
-  {ok, Ctx}.
+  decision(resource_call(malformed_request, Ctx), false, 403, Ctx).
+
 -spec v3b8_authorized(context()) -> flow_result().
-v3b8_authorized(Ctx) ->
-  {ok, Ctx}.
+v3b8_authorized(Ctx0) ->
+  case resource_call(is_authorized, Ctx0) of
+    {true, Req, ResCtx} ->
+      update_context(Req, ResCtx, Ctx0);
+    {_, _} = HaltOrError ->
+      error_response(HaltOrError, Ctx0);
+    {AuthHead, Req0, ResCtx} ->
+      Req = cowboy_req:set_resp_header(<<"WWW-Authenticate">>, AuthHead, Req0),
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      error_response(401, Ctx)
+  end.
+
 -spec v3b7_forbidden(context()) -> flow_result().
 v3b7_forbidden(Ctx) ->
-  {ok, Ctx}.
--spec v3b6_known_content_header(context()) -> flow_result().
-v3b6_known_content_header(Ctx) ->
-  {ok, Ctx}.
--spec v3b5_unknown_content_type(context()) -> flow_result().
-v3b5_unknown_content_type(Ctx) ->
-  {ok, Ctx}.
+  decision(resource_call(forbidden, Ctx), false, 403, Ctx).
+
+-spec v3b6_valid_content_headers(context()) -> flow_result().
+v3b6_valid_content_headers(Ctx) ->
+  decision(resource_call(valid_content_headers, Ctx), true, 501, Ctx).
+
+-spec v3b5_known_content_type(context()) -> flow_result().
+v3b5_known_content_type(Ctx) ->
+  decision(resource_call(known_content_type, Ctx), true, 415, Ctx).
+
 -spec v3b4_request_too_large(context()) -> flow_result().
 v3b4_request_too_large(Ctx) ->
-  {ok, Ctx}.
+  decision(resource_call(valid_entity_length, Ctx), true, 413, Ctx).
+
 -spec v3b3_options(context()) -> flow_result().
-v3b3_options(Ctx) ->
-  {ok, Ctx}.
+v3b3_options(Ctx0) ->
+  case method(Ctx0) of
+    {<<"OPTIONS">>, Ctx1} ->
+      case resource_call(options, Ctx1) of
+        {Headers, Req0, ResCtx} ->
+          F = fun({H, V}, R) -> cowboy_req:set_resp_header(H, V, R) end,
+          Req = lists:foldl(F, Req0, Headers),
+          {ok, Ctx} = update_context(Req, ResCtx, Ctx1),
+          error_response(200, Ctx);
+        Other ->
+          error_response(Other, Ctx0)
+      end;
+    {_, Ctx1} ->
+      {ok, Ctx1}
+  end.
 
 %%_* Content negotiation--------------------------------------------------------
 -spec v3c3_accept(context()) -> flow_result().
@@ -182,6 +216,11 @@ resource_call(Call, Ctx) ->
       end
   end.
 
+-spec decision( response(term())
+              , ExpectedResponse::term()
+              , HTTPCodeForFailResponse::integer()
+              , context()
+              ) -> flow_result().
 decision({Response, Req, ResCtx}, Response, _, Ctx0) ->
   update_context(Req, ResCtx, Ctx0);
 decision({_, Req, ResCtx}, _, Code, Ctx0) ->
@@ -204,13 +243,19 @@ error_response({error, Reason}, Ctx) ->
 error_response({halt, Code}, Ctx) ->
   error_response(Code, Ctx);
 error_response(Code, Ctx) when is_integer(Code) ->
+  {ok, Resource} = unrest_context:get(resource_module, Ctx),
+  {ok, Callstack} = unrest_context:callstack(Ctx),
+  lager:info("Resource call finished with code ~p. "
+              "Resource: ~p. Callstack: ~p"
+              , [Code, Resource, Callstack]
+  ),
   Req0 = req(Ctx),
   {ok, Req}  = cowboy_req:reply(Code, Req0),
   {respond, Req};
 error_response(Reason, Ctx) ->
   {ok, Resource} = unrest_context:get(resource_module, Ctx),
   {ok, Callstack} = unrest_context:callstack(Ctx),
-  lager:error( "Resource call finished with error ~p. "
+  lager:info( "Resource call finished with error ~p. "
                "Resource: ~p. Callstack: ~p"
              , [Reason, Resource, Callstack]
              ),

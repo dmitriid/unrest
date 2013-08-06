@@ -27,10 +27,17 @@ How to use:
 Given the config above, implement your resource in some_resource.erl as you would
 a regular webmachine resource. Notable differences:
       - For every callback expecting a Req, it is a cowboy_req:req()
+      - You can return {halt, ErrorCode} or {error, ErrorTerm} from any callback
+      - ping (undocumented but required by webmachine) is not required
+      - md5 checksum for streaming bodies is not implemented for content-md5 headers
 "
 ---
 /:
   GET:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
+  OPTIONS:
     resource_module: unrest_wm_service_example
     __flow__:
       __flow__: webmachine_flow
@@ -53,8 +60,8 @@ __flows__:
       - v3b9_malformed_request
       - v3b8_authorized
       - v3b7_forbidden
-      - v3b6_known_content_header
-      - v3b5_unknown_content_type
+      - v3b6_valid_content_headers
+      - v3b5_known_content_type
       - v3b4_request_too_large
       - v3b3_options
   webmachine_content_negotiation:
