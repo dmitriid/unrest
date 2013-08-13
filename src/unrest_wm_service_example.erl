@@ -26,7 +26,14 @@
         , known_content_type/2
         , valid_entity_length/2
         , options/2
-       ]).
+        ]
+       ).
+
+%% Content negotiation
+-export([ content_types_provided/2
+        , languages_provided/2
+        ]
+       ).
 
 %%_* Types =====================================================================
 
@@ -35,6 +42,8 @@
 -type response(What) :: unrest_webmachine:response(What).
 
 %%_* API =======================================================================
+
+%%_* init ----------------------------------------------------------------------
 
 %%
 %% @doc The entry point to your resource
@@ -49,6 +58,7 @@ init(_Params) ->
 ping(Req, Ctx) ->
   {pong, Req, Ctx}.
 
+%%_* validation and auth -------------------------------------------------------
 -spec service_available(req(), context()) -> response(boolean()).
 service_available(Req, Ctx) ->
   {true, Req, Ctx}.
@@ -98,6 +108,25 @@ valid_entity_length(Req, Ctx) ->
 -spec options(req(), context()) -> response([{binary(), iolist()}]).
 options(Req, Ctx) ->
   {[{<<"Custom">>, <<"Value">>}], Req, Ctx}.
+
+%%_* content negotiation -------------------------------------------------------
+
+-spec content_types_provided(req(), context()) ->
+                                                 response([{header(), atom()}]).
+-type header() ::   binary()
+                  | { Type::binary()
+                    , Subtype::binary()
+                    , Params::[{binary(), binary()}]
+                    }.
+content_types_provided(Req, Ctx) ->
+  ContentTypes = [ {{<<"text">>, <<"html">>, []}, to_html}
+                 , {<<"text/plain">>, to_text}
+                 ],
+  {ContentTypes, Req, Ctx}.
+
+-spec languages_provided(req(), context()) -> response([binary()]).
+languages_provided(Req, Ctx) ->
+  {[<<"ru-ru">>], Req, Ctx}.
 
 %%% Local Variables:
 %%% erlang-indent-level: 2

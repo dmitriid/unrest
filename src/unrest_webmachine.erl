@@ -30,7 +30,15 @@
         ]).
 
 %% Content negotiation
--export([ v3c3_accept/1
+-export([ v3c3_accept_init/1
+        , v3c3_accept/1
+        , v3d4_accept_language/1
+        , v3e5_accept_charset/1
+        , v3f6_accept_encoding/1
+]).
+
+%% Content negotiation
+-export([ dummy_output/1
         ]).
 
 %%_* Types =====================================================================
@@ -44,6 +52,14 @@
 -export_type([response/1]).
 
 %%_* API =======================================================================
+
+%% TODO: remove once all the flows are implemented
+-spec dummy_output(context()) -> flow_result().
+dummy_output(Ctx) ->
+  Trace = iolist_to_binary(io_lib:format("~p", [unrest_context:callstack(Ctx)])),
+  {ok, Req0} = unrest_context:get(req, Ctx),
+  {ok, Req} = cowboy_req:reply(200, [], Trace, Req0),
+  {respond, Req}.
 
 -spec init(context()) -> flow_result().
 init(Ctx0) ->
@@ -191,12 +207,76 @@ v3b3_options(Ctx0) ->
   end.
 
 %%_* Content negotiation--------------------------------------------------------
+-spec v3c3_accept_init(context()) -> flow_result().
+v3c3_accept_init(Ctx0) ->
+  case resource_call(content_types_provided, Ctx0) of
+    {List, Req, ResCtx} ->
+      {ok, Ctx1} = update_context(Req, ResCtx, Ctx0),
+
+      ContentTypes = [normalize_content_types(Type) || Type <- List],
+
+      unrest_context:set( content_types_provided
+                        , ContentTypes
+                        , Ctx1
+                        );
+    Other ->
+      error_response(Other, Ctx0)
+  end.
+
 -spec v3c3_accept(context()) -> flow_result().
-v3c3_accept(Ctx) ->
-  Trace = iolist_to_binary(io_lib:format("~p", [unrest_context:callstack(Ctx)])),
-  {ok, Req0} = unrest_context:get(req, Ctx),
-  {ok, Req} = cowboy_req:reply(200, [], Trace, Req0),
-  {respond, Req}.
+v3c3_accept(Ctx0) ->
+  Req0 = req(Ctx0),
+  case cowboy_req:parse_header(<<"accept">>, Req0) of
+    {error, badarg} ->
+      error_response(400, Ctx0);
+    {ok, undefined, Req} ->
+      unrest_context:multiset( [ {req, Req}
+                               , {media_type, {<<"text">>, <<"html">>, []}}
+                               , { content_type_a
+                                 , {{<<"text">>, <<"html">>, []}, to_html}
+                                 }
+                               ]
+                             , Ctx0
+                             );
+    {ok, Accept0, Req} ->
+      {ok, Ctx} = unrest_context:set(req, Req, Ctx0),
+      Accept = prioritize_accept(Accept0),
+      choose_media_type(Accept, Ctx)
+  end.
+
+-spec v3d4_accept_language(context()) -> flow_result().
+v3d4_accept_language(Ctx0) ->
+  case resource_call(languages_provided, Ctx0) of
+    not_implemented ->
+      {ok, Ctx0};
+    {_, _} = HaltOrError ->
+      error_response(HaltOrError, Ctx0);
+    {[], Req, ResCtx} ->
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      error_response(406, Ctx);
+    {Languages, Req0, ResCtx} ->
+      {ok, Ctx1} = unrest_context:set(languages_provided, Languages, Ctx0),
+      {ok, AcceptLanguage, Req1} =
+                           cowboy_req:parse_header(<<"accept-language">>, Req0),
+      case AcceptLanguage of
+        undefined ->
+          Language = hd(Languages),
+          {ok, Ctx} = update_context(Req1, ResCtx, Ctx1),
+          set_language(Language, Ctx);
+        AcceptLanguage0 ->
+          {ok, Ctx} = update_context(Req1, ResCtx, Ctx1),
+          AcceptLanguage = prioritize_languages(AcceptLanguage0),
+          choose_language(AcceptLanguage, Ctx)
+      end
+  end.
+
+-spec v3e5_accept_charset(context()) -> flow_result().
+v3e5_accept_charset(Ctx) ->
+  {ok, Ctx}.
+
+-spec v3f6_accept_encoding(context()) -> flow_result().
+v3f6_accept_encoding(Ctx) ->
+  {ok, Ctx}.
 
 %%_* Internal ==================================================================
 
@@ -292,6 +372,145 @@ update_context(Req, ResCtx, Ctx) ->
                          , Ctx
                          ).
 
+normalize_content_types({ContentType, Callback})
+  when is_binary(ContentType) ->
+  {cowboy_http:content_type(ContentType), Callback};
+normalize_content_types(Normalized) ->
+  Normalized.
+
+prioritize_accept(Accept) ->
+  lists:sort(
+    fun({MediaTypeA, Quality, _AcceptParamsA},
+        {MediaTypeB, Quality, _AcceptParamsB}) ->
+      %% Same quality, check precedence in more details.
+      prioritize_mediatype(MediaTypeA, MediaTypeB);
+      ({_MediaTypeA, QualityA, _AcceptParamsA},
+       {_MediaTypeB, QualityB, _AcceptParamsB}) ->
+        %% Just compare the quality.
+        QualityA > QualityB
+    end, Accept).
+
+%% Media ranges can be overridden by more specific media ranges or
+%% specific media types. If more than one media range applies to a given
+%% type, the most specific reference has precedence.
+%%
+%% We always choose B over A when we can't decide between the two.
+prioritize_mediatype({TypeA, SubTypeA, ParamsA}, {TypeB, SubTypeB, ParamsB}) ->
+  case TypeB of
+    TypeA ->
+      case SubTypeB of
+        SubTypeA -> length(ParamsA) > length(ParamsB);
+        <<"*">> -> true;
+        _Any -> false
+      end;
+    <<"*">> -> true;
+    _Any -> false
+  end.
+
+%% Ignoring the rare AcceptParams. Not sure what should be done about them.
+choose_media_type([], Ctx) ->
+  error_response(406, Ctx);
+choose_media_type(Accept, Ctx) ->
+  {ok, ContentTypes} = unrest_context:get(content_types_provided, Ctx),
+  match_media_type(Accept, ContentTypes, Ctx).
+
+match_media_type([H|T], ContentTypes, Ctx) ->
+  match_media_type(H, ContentTypes, T, Ctx).
+
+match_media_type(_MediaType, [], Accept, Ctx) ->
+  choose_media_type(Accept, Ctx);
+match_media_type( MediaType = {{<<"*">>, <<"*">>, _Params_A}, _QA, _APA}
+                , ContentTypes
+                , Accept
+                , Ctx) ->
+  match_media_type_params(MediaType, ContentTypes, Accept, Ctx);
+match_media_type( MediaType = {{Type, SubType_A, _PA}, _QA, _APA}
+                , ContentTypes = [{{Type, SubType_P, _PP}, _Fun}|_Tail]
+                , Accept
+                , Ctx
+                ) when SubType_P =:= SubType_A; SubType_A =:= <<"*">> ->
+  match_media_type_params(MediaType, ContentTypes, Accept, Ctx);
+match_media_type(MediaType, [_|T], Accept, Ctx) ->
+  match_media_type(MediaType, T, Accept, Ctx).
+
+match_media_type_params({{_TA, _STA, Params_A}, _QA, _APA}
+                       , [Provided = {{TP, STP, '*'}, _Fun}|_Tail]
+                       , _Accept
+                       , Ctx
+                       ) ->
+  PMT = {TP, STP, Params_A},
+  unrest_context:multiset([ {media_type, PMT}
+                          , {content_type_a, Provided}
+                          ]
+                          , Ctx
+                         );
+match_media_type_params( MediaType = {{_TA, _STA, Params_A}, _QA, _APA}
+                       , [Provided = {PMT = {_TP, _STP, Params_P}, _Fun}|Tail]
+                       , Accept
+                       , Ctx
+                       ) ->
+  case lists:sort(Params_P) =:= lists:sort(Params_A) of
+    true ->
+      unrest_context:multiset( [ {media_type, PMT}
+                               , {content_type_a, Provided}
+                               ]
+                              , Ctx
+                             );
+    false ->
+      match_media_type(MediaType, Tail, Accept, Ctx)
+  end.
+
+%% A language-range matches a language-tag if it exactly equals the tag,
+%% or if it exactly equals a prefix of the tag such that the first tag
+%% character following the prefix is "-". The special range "*", if
+%% present in the Accept-Language field, matches every tag not matched
+%% by any other range present in the Accept-Language field.
+%%
+%% @todo The last sentence probably means we should always put '*'
+%% at the end of the list.
+prioritize_languages(AcceptLanguages) ->
+  lists:sort(
+    fun({_TagA, QualityA}, {_TagB, QualityB}) ->
+      QualityA > QualityB
+    end, AcceptLanguages).
+
+choose_language([], Ctx) ->
+  error_response(406, Ctx);
+choose_language([Language | Tail], Ctx) ->
+  {ok, LanguagesProvided} = unrest_context:get(languages_provided, Ctx),
+  match_language(Language, LanguagesProvided, Tail, Ctx).
+
+match_language(_Language, [], Accept, Ctx) ->
+  choose_language(Accept, Ctx);
+match_language({'*', _Quality}, [Provided | _], _Accept, Ctx) ->
+  set_language(Provided, Ctx);
+match_language({Provided, _Quality}, [Provided | _], _Accept, Ctx) ->
+  set_language(Provided, Ctx);
+match_language( Language = {Tag, _Quality}
+              , [Provided | Tail]
+              , Accept
+              , Ctx
+              ) ->
+  Length = byte_size(Tag),
+  case Provided of
+    <<Tag:Length/binary, $-, _Any/bits>> ->
+      set_language(Provided, Ctx);
+    _Any ->
+      match_language(Language, Tail, Accept, Ctx)
+  end.
+
+set_language(Language, Ctx) ->
+  Req = cowboy_req:set_resp_header( <<"content-language">>
+                                  , Language
+                                  , req(Ctx)
+                                  ),
+  unrest_context:multiset( [ {language, Language}
+                           , {req, Req}
+                           ]
+                          , Ctx
+                         ).
+
+
 %%_* Defaults ==================================================================
 
 default(ping) ->
@@ -326,7 +545,7 @@ default(known_methods) ->
   [ <<"GET">>, <<"HEAD">>, <<"POST">>, <<"PUT">>, <<"DELETE">>, <<"TRACE">>
   , <<"CONNECT">>, <<"OPTIONS">>, <<"PATCH">>];
 default(content_types_provided) ->
-    [{<<"text/html">>, to_html}];
+  [{{<<"text">>, <<"html">>, '*'}, to_html}];
 default(content_types_accepted) ->
     [];
 default(delete_resource) ->

@@ -49,6 +49,7 @@ __flows__:
     __flow__:
       - webmachine_validation_auth
       - webmachine_content_negotiation
+    unrest_webmachine: dummy_output
   webmachine_validation_auth:
     unrest_webmachine:
       - ping
@@ -66,4 +67,8 @@ __flows__:
       - v3b3_options
   webmachine_content_negotiation:
     unrest_webmachine:
+      - v3c3_accept_init
       - v3c3_accept
+      - v3d4_accept_language
+      - v3e5_accept_charset
+      - v3f6_accept_encoding
