@@ -111,6 +111,22 @@ options(Req, Ctx) ->
 
 %%_* content negotiation -------------------------------------------------------
 
+%% @doc content_types_provided/2 should return a list of content types and their
+%%      associated callback function as a tuple: {{Type, SubType, Params}, Fun}.
+%%      Type and SubType are the media type as binary. Params is a list of
+%%      Key/Value tuple, with Key and Value a binary. Fun is the name of the
+%%      callback that will be used to return the content of the response. It is
+%%      given as an atom.
+%%
+%%      An example of such return value would be:
+%%         {{<<"text">>, <<"html">>, []}, to_html}
+%%
+%%      Note that it is also possible to return a binary content type that will
+%%      then be parsed by Cowboy. However note that while this may make your
+%%      resources a little more readable, this is a lot less efficient.
+%%
+%%      An example of such return value would be:
+%%        {<<"text/html">>, to_html}
 -spec content_types_provided(req(), context()) ->
                                                  response([{header(), atom()}]).
 -type header() ::   binary()
@@ -124,6 +140,8 @@ content_types_provided(Req, Ctx) ->
                  ],
   {ContentTypes, Req, Ctx}.
 
+%% @doc languages_provided should return a list of binary values indicating
+%%      which languages are accepted by the resource.
 -spec languages_provided(req(), context()) -> response([binary()]).
 languages_provided(Req, Ctx) ->
   {[<<"ru-ru">>], Req, Ctx}.
