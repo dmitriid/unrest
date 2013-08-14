@@ -257,7 +257,8 @@ v3d4_accept_language(Ctx0) ->
     {Languages, Req0, ResCtx} ->
       {ok, Ctx1} = unrest_context:set(languages_provided, Languages, Ctx0),
       case cowboy_req:parse_header(<<"accept-language">>, Req0) of
-        {error, badarg} -> error_response(406, Ctx1);
+        {error, badarg} ->
+          error_response(406, Ctx1);
         {ok, undefined , Req1} ->
           Language = hd(Languages),
           {ok, Ctx} = update_context(Req1, ResCtx, Ctx1),
@@ -270,8 +271,30 @@ v3d4_accept_language(Ctx0) ->
   end.
 
 -spec v3e5_accept_charset(context()) -> flow_result().
-v3e5_accept_charset(Ctx) ->
-  {ok, Ctx}.
+v3e5_accept_charset(Ctx0) ->
+  case resource_call(charsets_provided, Ctx0) of
+    not_implemented ->
+      set_content_type(Ctx0);
+    {_, _} = HaltOrError ->
+      error_response(HaltOrError, Ctx0);
+    {[], Req, ResCtx} ->
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      error_response(406, Ctx);
+    {Charsets, Req0, ResCtx} ->
+      {ok, Ctx1} = unrest_context:set(charsets_provided, Charsets, Ctx0),
+      case cowboy_req:parse_header(<<"accept-charset">>, Req0) of
+        {error, badarg} ->
+          error_response(406, Ctx1);
+        {ok, undefined, Req1} ->
+          {ok, Ctx2} = update_context(Req1, ResCtx, Ctx1),
+          {ok, Ctx}  = unrest_context:set(charset_a, hd(Charsets), Ctx2),
+          set_content_type(Ctx);
+        {ok, AcceptCharset0, Req1} ->
+          {ok, Ctx} = update_context(Req1, ResCtx, Ctx1),
+          AcceptCharset = prioritize_charsets(AcceptCharset0),
+          choose_charset(AcceptCharset, Ctx)
+      end
+  end.
 
 -spec v3f6_accept_encoding(context()) -> flow_result().
 v3f6_accept_encoding(Ctx) ->
@@ -509,6 +532,68 @@ set_language(Language, Ctx) ->
                           , Ctx
                          ).
 
+%% The special value "*", if present in the Accept-Charset field,
+%% matches every character set (including ISO-8859-1) which is not
+%% mentioned elsewhere in the Accept-Charset field. If no "*" is present
+%% in an Accept-Charset field, then all character sets not explicitly
+%% mentioned get a quality value of 0, except for ISO-8859-1, which gets
+%% a quality value of 1 if not explicitly mentioned.
+prioritize_charsets(AcceptCharsets) ->
+  AcceptCharsets2 = lists:sort(
+    fun({_CharsetA, QualityA}, {_CharsetB, QualityB}) ->
+      QualityA > QualityB
+    end, AcceptCharsets),
+  case lists:keymember(<<"*">>, 1, AcceptCharsets2) of
+    true -> AcceptCharsets2;
+    false ->
+      case lists:keymember(<<"iso-8859-1">>, 1, AcceptCharsets2) of
+        true -> AcceptCharsets2;
+        false -> [{<<"iso-8859-1">>, 1000}|AcceptCharsets2]
+      end
+  end.
+
+choose_charset([], Ctx) ->
+  error_response(406, Ctx);
+choose_charset([Charset | Tail], Ctx) ->
+  {ok, CharsetsProvided} = unrest_context:get(charsets_provided, Ctx),
+  match_charset(Charset, CharsetsProvided, Tail, Ctx).
+
+match_charset(_, [], Accept, Ctx) ->
+  choose_charset(Accept, Ctx);
+match_charset({Provided, _}, [Provided | _], _Accept, Ctx0) ->
+  {ok, Ctx} = unrest_context:set(charset_a, Provided, Ctx0),
+  set_content_type(Ctx);
+match_charset(Charset, [_ | Tail], Accept, Ctx) ->
+  match_charset(Charset, Tail, Accept, Ctx).
+
+
+set_content_type(Ctx0) ->
+  {ok, {{Type, SubType, Params}, _Fun}} =
+                                       unrest_context:get(content_type_a, Ctx0),
+  {ok, Charset} = unrest_context:get(charset_a, Ctx0, undefined),
+  ParamsBin = set_content_type_build_params(Params, []),
+  ContentType = [Type, <<"/">>, SubType, ParamsBin],
+  ContentType2 = case Charset of
+                   undefined -> ContentType;
+                   Charset -> [ContentType, <<"; charset=">>, Charset]
+                 end,
+  Req0 = req(Ctx0),
+  Req1 = cowboy_req:set_resp_header(<<"content-type">>, ContentType2, Req0),
+  unrest_context:multiset( [ {req, Req1}
+                           , {charset, Charset}
+                           ]
+                         , Ctx0
+                         ).
+
+set_content_type_build_params('*', []) ->
+  <<>>;
+set_content_type_build_params([], []) ->
+  <<>>;
+set_content_type_build_params([], Acc) ->
+  lists:reverse(Acc);
+set_content_type_build_params([{Attr, Value}|Tail], Acc) ->
+  set_content_type_build_params(Tail, [[Attr, <<"=">>, Value], <<";">>|Acc]).
+
 
 %%_* Defaults ==================================================================
 
@@ -562,7 +647,7 @@ default(process_post) ->
 default(language_available) ->
     true;
 default(charsets_provided) ->
-    no_charset; % this atom causes charset-negotation to short-circuit
+    not_implemented; % this atom causes charset-negotation to short-circuit
     % the default setting is needed for non-charset responses such as image/png
     %    an example of how one might do actual negotiation
     %    [{"iso-8859-1", fun(X) -> X end}, {"utf-8", make_utf8}];
