@@ -144,7 +144,7 @@ content_types_provided(Req, Ctx) ->
 %%      which languages are accepted by the resource.
 -spec languages_provided(req(), context()) -> response([binary()]).
 languages_provided(Req, Ctx) ->
-  {[<<"ru-ru">>], Req, Ctx}.
+  {[<<"en-us">>, <<"ru">>], Req, Ctx}.
 
 %%% Local Variables:
 %%% erlang-indent-level: 2

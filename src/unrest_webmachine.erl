@@ -256,14 +256,13 @@ v3d4_accept_language(Ctx0) ->
       error_response(406, Ctx);
     {Languages, Req0, ResCtx} ->
       {ok, Ctx1} = unrest_context:set(languages_provided, Languages, Ctx0),
-      {ok, AcceptLanguage, Req1} =
-                           cowboy_req:parse_header(<<"accept-language">>, Req0),
-      case AcceptLanguage of
-        undefined ->
+      case cowboy_req:parse_header(<<"accept-language">>, Req0) of
+        {error, badarg} -> error_response(406, Ctx1);
+        {ok, undefined , Req1} ->
           Language = hd(Languages),
           {ok, Ctx} = update_context(Req1, ResCtx, Ctx1),
           set_language(Language, Ctx);
-        AcceptLanguage0 ->
+        {ok, AcceptLanguage0, Req1} ->
           {ok, Ctx} = update_context(Req1, ResCtx, Ctx1),
           AcceptLanguage = prioritize_languages(AcceptLanguage0),
           choose_language(AcceptLanguage, Ctx)
