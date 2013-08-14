@@ -33,6 +33,7 @@
 -export([ content_types_provided/2
         , languages_provided/2
         , charsets_provided/2
+        , variances/2
         ]
        ).
 
@@ -150,6 +151,10 @@ languages_provided(Req, Ctx) ->
 -spec charsets_provided(req(), context()) -> response([binary()]).
 charsets_provided(Req, Ctx) ->
   {[<<"utf-8">>], Req, Ctx}.
+
+-spec variances(req(), context()) -> response([binary()]).
+variances(Req, Ctx) ->
+  {[<<"accept-charset">>], Req, Ctx}.
 
 %%% Local Variables:
 %%% erlang-indent-level: 2

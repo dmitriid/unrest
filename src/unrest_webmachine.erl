@@ -296,9 +296,12 @@ v3e5_accept_charset(Ctx0) ->
       end
   end.
 
+%% @todo Match for identity as we provide nothing else for now.
+%% @todo Don't forget to set the Content-Encoding header when we reply a body
+%%       and the found encoding is something other than identity.
 -spec v3f6_accept_encoding(context()) -> flow_result().
 v3f6_accept_encoding(Ctx) ->
-  {ok, Ctx}.
+  variances(Ctx).
 
 %%_* Internal ==================================================================
 
@@ -594,6 +597,53 @@ set_content_type_build_params([], Acc) ->
 set_content_type_build_params([{Attr, Value}|Tail], Acc) ->
   set_content_type_build_params(Tail, [[Attr, <<"=">>, Value], <<";">>|Acc]).
 
+
+%% variances/2 should return a list of headers that will be added
+%% to the Vary response header. The Accept, Accept-Language,
+%% Accept-Charset and Accept-Encoding headers do not need to be
+%% specified.
+%%
+%% @todo Do Accept-Encoding too when we handle it.
+%% @todo Does the order matter?
+variances(Ctx0) ->
+  {ok, CTP} = unrest_context:get(content_types_provided, Ctx0),
+  {ok, LP}  = unrest_context:get(languages_provided, Ctx0),
+  {ok, CP}  = unrest_context:get(charsets_provided, Ctx0),
+  Variances = case CTP of
+                [] -> [];
+                [_] -> [];
+                [_|_] -> [<<"accept">>]
+              end,
+  Variances2 = case LP of
+                 [] -> Variances;
+                 [_] -> Variances;
+                 [_|_] -> [<<"accept-language">>|Variances]
+               end,
+  Variances3 = case CP of
+                 [] -> Variances2;
+                 [_] -> Variances2;
+                 [_|_] -> [<<"accept-charset">>|Variances2]
+               end,
+
+  case resource_call(variances, Ctx0) of
+    not_implemented ->
+      variances(Variances3, Ctx0);
+    {_, _} = HaltOrError ->
+      error_response(HaltOrError, Ctx0);
+    {HandlerVariances, Req, ResCtx} ->
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      variances(HandlerVariances ++ Variances3, Ctx)
+  end.
+
+variances(Variances, Ctx) ->
+  case [[<<", ">>, V] || V <- Variances] of
+    [] ->
+      {ok, Ctx};
+    [[<<", ">>, H]|Variances5] ->
+      Req0 = req(Ctx),
+      Req = cowboy_req:set_resp_header(<<"vary">>, [H|Variances5], Req0),
+      unrest_context:set(req, Req, Ctx)
+  end.
 
 %%_* Defaults ==================================================================
 
