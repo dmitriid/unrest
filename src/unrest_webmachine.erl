@@ -35,6 +35,7 @@
         , v3d4_accept_language/1
         , v3e5_accept_charset/1
         , v3f6_accept_encoding/1
+        , v3g7_variances/1
 ]).
 
 %% Content negotiation
@@ -301,7 +302,38 @@ v3e5_accept_charset(Ctx0) ->
 %%       and the found encoding is something other than identity.
 -spec v3f6_accept_encoding(context()) -> flow_result().
 v3f6_accept_encoding(Ctx) ->
-  variances(Ctx).
+  {ok, Ctx}.
+
+-spec v3g7_variances(context()) -> flow_result().
+v3g7_variances(Ctx0) ->
+  {ok, CTP} = unrest_context:get(content_types_provided, Ctx0),
+  {ok, LP} = unrest_context:get(languages_provided, Ctx0),
+  {ok, CP} = unrest_context:get(charsets_provided, Ctx0),
+  Variances = case CTP of
+                [] -> [];
+                [_] -> [];
+                [_|_] -> [<<"accept">>]
+              end,
+  Variances2 = case LP of
+                 [] -> Variances;
+                 [_] -> Variances;
+                 [_|_] -> [<<"accept-language">>|Variances]
+               end,
+  Variances3 = case CP of
+                 [] -> Variances2;
+                 [_] -> Variances2;
+                 [_|_] -> [<<"accept-charset">>|Variances2]
+               end,
+
+  case resource_call(variances, Ctx0) of
+    not_implemented ->
+      variances(Variances3, Ctx0);
+    {_, _} = HaltOrError ->
+      error_response(HaltOrError, Ctx0);
+    {HandlerVariances, Req, ResCtx} ->
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      variances(HandlerVariances ++ Variances3, Ctx)
+  end.
 
 %%_* Internal ==================================================================
 
@@ -596,44 +628,6 @@ set_content_type_build_params([], Acc) ->
   lists:reverse(Acc);
 set_content_type_build_params([{Attr, Value}|Tail], Acc) ->
   set_content_type_build_params(Tail, [[Attr, <<"=">>, Value], <<";">>|Acc]).
-
-
-%% variances/2 should return a list of headers that will be added
-%% to the Vary response header. The Accept, Accept-Language,
-%% Accept-Charset and Accept-Encoding headers do not need to be
-%% specified.
-%%
-%% @todo Do Accept-Encoding too when we handle it.
-%% @todo Does the order matter?
-variances(Ctx0) ->
-  {ok, CTP} = unrest_context:get(content_types_provided, Ctx0),
-  {ok, LP}  = unrest_context:get(languages_provided, Ctx0),
-  {ok, CP}  = unrest_context:get(charsets_provided, Ctx0),
-  Variances = case CTP of
-                [] -> [];
-                [_] -> [];
-                [_|_] -> [<<"accept">>]
-              end,
-  Variances2 = case LP of
-                 [] -> Variances;
-                 [_] -> Variances;
-                 [_|_] -> [<<"accept-language">>|Variances]
-               end,
-  Variances3 = case CP of
-                 [] -> Variances2;
-                 [_] -> Variances2;
-                 [_|_] -> [<<"accept-charset">>|Variances2]
-               end,
-
-  case resource_call(variances, Ctx0) of
-    not_implemented ->
-      variances(Variances3, Ctx0);
-    {_, _} = HaltOrError ->
-      error_response(HaltOrError, Ctx0);
-    {HandlerVariances, Req, ResCtx} ->
-      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      variances(HandlerVariances ++ Variances3, Ctx)
-  end.
 
 variances(Variances, Ctx) ->
   case [[<<", ">>, V] || V <- Variances] of

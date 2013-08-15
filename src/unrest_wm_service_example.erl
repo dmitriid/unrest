@@ -152,6 +152,10 @@ languages_provided(Req, Ctx) ->
 charsets_provided(Req, Ctx) ->
   {[<<"utf-8">>], Req, Ctx}.
 
+%% @doc variances/2 should return a list of headers that will be added
+%%      to the Vary response header. The Accept, Accept-Language,
+%%      Accept-Charset and Accept-Encoding headers do not need to be
+%%      specified.
 -spec variances(req(), context()) -> response([binary()]).
 variances(Req, Ctx) ->
   {[<<"accept-charset">>], Req, Ctx}.

@@ -72,3 +72,4 @@ __flows__:
       - v3d4_accept_language
       - v3e5_accept_charset
       - v3f6_accept_encoding
+      - v3g7_variances
