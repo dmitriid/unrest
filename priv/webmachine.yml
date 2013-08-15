@@ -41,6 +41,10 @@ a regular webmachine resource. Notable differences:
     resource_module: unrest_wm_service_example
     __flow__:
       __flow__: webmachine_flow
+  PUT:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
 
 
 __flows__:
@@ -49,6 +53,7 @@ __flows__:
     __flow__:
       - webmachine_validation_auth
       - webmachine_content_negotiation
+    unrest_webmachine: v3g7_resource_exists # from here down flows are called by code
     unrest_webmachine: dummy_output
   webmachine_validation_auth:
     unrest_webmachine:
@@ -73,3 +78,18 @@ __flows__:
       - v3e5_accept_charset
       - v3f6_accept_encoding
       - v3g7_variances
+  # flows below are not included in the flows above
+  # these are triggered programmatically by decisions in code
+  webmachine_non_existing_resource_flow:
+    unrest_webmachine:
+      - v3h7_if_match
+      - v3i7_is_put
+      - v3k7_previously_existed
+      - v3l7_is_post
+      - dummy_output
+  webmachine_non_existing_put_flow:
+    unrest_webmachine:
+      - v3i4_moved_permanently
+      - v3p3_conflict
+      - dummy_output
+

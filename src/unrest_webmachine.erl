@@ -38,7 +38,26 @@
         , v3g7_variances/1
 ]).
 
-%% Content negotiation
+%% Existence and redirection
+-export([ v3g7_resource_exists/1 ]).
+
+%% Existence and redirection
+%% webmachine_non_existing_resource_flow
+-export([ v3h7_if_match/1
+        , v3i7_is_put/1
+        , v3k7_previously_existed/1
+        , v3l7_is_post/1
+        ]).
+
+%% Existence and redirection
+%% webmachine_non_existing_resource_flow
+-export([ v3i4_moved_permanently/1
+        , v3p3_conflict/1
+        ]).
+
+
+%% Dummy output
+%% TODO: remove once all the flows are implemented
 -export([ dummy_output/1
         ]).
 
@@ -207,7 +226,7 @@ v3b3_options(Ctx0) ->
       {ok, Ctx1}
   end.
 
-%%_* Content negotiation--------------------------------------------------------
+%%_* Content negotiation -------------------------------------------------------
 -spec v3c3_accept_init(context()) -> flow_result().
 v3c3_accept_init(Ctx0) ->
   case resource_call(content_types_provided, Ctx0) of
@@ -367,6 +386,80 @@ v3g7_variances(Ctx0) ->
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
       variances(HandlerVariances ++ Variances4, Ctx)
   end.
+
+%%_* Existence and redirection -------------------------------------------------
+
+-spec v3g7_resource_exists(context()) -> flow_result().
+v3g7_resource_exists(Ctx0) ->
+  {Bool, Req, ResCtx} = resource_call(resource_exists, Ctx0),
+  {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+  case Bool of
+    true  ->
+      %% TODO: redirect to exist flow
+      {ok, Ctx};
+    false ->
+      {flow, <<"webmachine_non_existing_resource_flow">>, Ctx}
+  end.
+
+-spec v3h7_if_match(context()) -> flow_result().
+v3h7_if_match(Ctx0) ->
+  {H, Ctx} = header(<<"if-match">>, Ctx0),
+  decision(H, undefined, 412, Ctx).
+
+-spec v3i7_is_put(context()) -> flow_result().
+v3i7_is_put(Ctx0) ->
+  {Method, Ctx} = method(Ctx0),
+  case Method of
+    <<"PUT">> ->
+      {flow, <<"webmachine_non_existing_put_flow">>, Ctx};
+    _         ->
+      {ok, Ctx}
+  end.
+
+-spec v3k7_previously_existed(context()) -> flow_result().
+v3k7_previously_existed(Ctx) ->
+  case resource_call(previously_existed, Ctx) of
+    not_implemented ->
+      {ok, Ctx};
+    {_, _} = HaltOrError ->
+      error_response(HaltOrError, Ctx);
+    {false, Req, ResCtx} ->
+      update_context(Req, ResCtx, Ctx);
+    {true, Req, ResCtx} ->
+      %% TODO: redirect to non_existing_previously_existed flow
+      update_context(Req, ResCtx, Ctx)
+  end.
+
+-spec v3l7_is_post(context()) -> flow_result().
+v3l7_is_post(Ctx0) ->
+  {Method, Ctx} = method(Ctx0),
+  case Method of
+    <<"POST">> ->
+      %% TODO: redirect to non_existing_post_flow
+      {ok, Ctx};
+    _ ->
+      error_response(404, Ctx)
+  end.
+
+-spec v3i4_moved_permanently(context()) -> flow_result().
+v3i4_moved_permanently(Ctx0) ->
+  case resource_call(moved_permanently, Ctx0) of
+    not_implemented ->
+      {ok, Ctx0};
+    {_, _} = HaltOrError ->
+      error_response(HaltOrError, Ctx0);
+    {false, Req, ResCtx} ->
+      update_context(Req, ResCtx, Ctx0);
+    {{true, MovedUri}, Req0, ResCtx} ->
+      Req = cowboy_req:set_resp_header(<<"location">>, MovedUri, Req0),
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      io:format("here ~p~n", [req(Ctx)]),
+      error_response(301, Ctx)
+  end.
+
+-spec v3p3_conflict(context()) -> flow_result().
+v3p3_conflict(Ctx) ->
+  {ok, Ctx}.
 
 %%_* Internal ==================================================================
 

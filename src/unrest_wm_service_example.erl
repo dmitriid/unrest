@@ -35,7 +35,13 @@
         , charsets_provided/2
         , encodings_provided/2
         , variances/2
-]
+        ]
+       ).
+
+%% Existence and redirection
+-export([ resource_exists/2
+        , moved_permanently/2
+        ]
        ).
 
 %%_* Types =====================================================================
@@ -68,7 +74,7 @@ service_available(Req, Ctx) ->
 
 -spec known_methods(req(), context()) -> response([binary()]).
 known_methods(Req, Ctx) ->
-  {[<<"GET">>, <<"OPTIONS">>], Req, Ctx}.
+  {[<<"GET">>, <<"OPTIONS">>, <<"PUT">>], Req, Ctx}.
 
 -spec uri_too_long(req(), context()) -> response(boolean()).
 uri_too_long(Req, Ctx) ->
@@ -76,7 +82,7 @@ uri_too_long(Req, Ctx) ->
 
 -spec allowed_methods(req(), context()) -> response([binary()]).
 allowed_methods(Req, Ctx) ->
-  {[<<"GET">>, <<"OPTIONS">>], Req, Ctx}.
+  {[<<"GET">>, <<"OPTIONS">>, <<"PUT">>], Req, Ctx}.
 
 %% @doc The `validate_content_checksum` function is undocumented in webmachine
 %%      docs. It's triggered when Content-MD5 header is present
@@ -144,7 +150,7 @@ content_types_provided(Req, Ctx) ->
   {ContentTypes, Req, Ctx}.
 
 %% @doc languages_provided should return a list of binary values indicating
-%%      which languages are accepted by the resource.
+%%      which languages are accepted by the resdource.
 -spec languages_provided(req(), context()) -> response([binary()]).
 languages_provided(Req, Ctx) ->
   {[<<"en-us">>, <<"ru">>], Req, Ctx}.
@@ -174,6 +180,17 @@ encodings_provided(Req, Ctx) ->
 -spec variances(req(), context()) -> response([binary()]).
 variances(Req, Ctx) ->
   {[<<"accept-charset">>], Req, Ctx}.
+
+%%_* existence and redirection -------------------------------------------------
+
+-spec resource_exists(req(), context()) -> response(boolean()).
+resource_exists(Req, Ctx) ->
+  {false, Req, Ctx}.
+
+-spec moved_permanently(req(), context()) -> response({true, iolist()} | false).
+moved_permanently(Req, Ctx) ->
+  {{true, <<"/aaa">>}, Req, Ctx}.
+
 
 %%% Local Variables:
 %%% erlang-indent-level: 2
