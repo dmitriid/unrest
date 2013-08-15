@@ -494,34 +494,12 @@ v3m5_is_post(Ctx0) ->
   end.
 
 -spec v3m7_allow_post_to_missing_resource(context()) -> flow_result().
-v3m7_allow_post_to_missing_resource(Ctx0) ->
-  case resource_call(allow_missing_post, Ctx0) of
-    not_implemented ->
-      {ok, Ctx0};
-    {_, _} = HaltOrError ->
-      error_response(HaltOrError, Ctx0);
-    {false, Req, ResCtx} ->
-      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      error_response(404, Ctx);
-    {true, Req, ResCtx} ->
-      %% TODO: redirect to non_existing_post_flow
-      update_context(Req, ResCtx, Ctx0)
-  end.
+v3m7_allow_post_to_missing_resource(Ctx) ->
+  decision(resource_call(allow_missing_post, Ctx), true, 404, Ctx).
 
 -spec v3n5_allow_post_to_missing_resource(context()) -> flow_result().
-v3n5_allow_post_to_missing_resource(Ctx0) ->
-  case resource_call(allow_missing_post, Ctx0) of
-    not_implemented ->
-      {ok, Ctx0};
-    {_, _} = HaltOrError ->
-      error_response(HaltOrError, Ctx0);
-    {false, Req, ResCtx} ->
-      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      error_response(410, Ctx);
-    {true, Req, ResCtx} ->
-      %% TODO: redirect to non_existing_post_flow
-      update_context(Req, ResCtx, Ctx0)
-  end.
+v3n5_allow_post_to_missing_resource(Ctx) ->
+  decision(resource_call(allow_missing_post, Ctx), true, 410, Ctx).
 
 %%_* Internal ==================================================================
 
@@ -587,6 +565,7 @@ error_response(Reason, Ctx) ->
   Req0 = req(Ctx),
   {ok, Req}  = cowboy_req:reply(500, Req0),
   {respond, Req}.
+
 
 %%_* Helpers ===================================================================
 
@@ -876,7 +855,6 @@ set_content_encoding(Ctx0) ->
                            ]
                           , Ctx0
                          ).
-
 
 %%_* Defaults ==================================================================
 
