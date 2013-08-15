@@ -41,6 +41,7 @@
 %% Existence and redirection
 -export([ resource_exists/2
         , moved_permanently/2
+        , is_conflict/2
         ]
        ).
 
@@ -150,7 +151,7 @@ content_types_provided(Req, Ctx) ->
   {ContentTypes, Req, Ctx}.
 
 %% @doc languages_provided should return a list of binary values indicating
-%%      which languages are accepted by the resdource.
+%%      which languages are accepted by the resource.
 -spec languages_provided(req(), context()) -> response([binary()]).
 languages_provided(Req, Ctx) ->
   {[<<"en-us">>, <<"ru">>], Req, Ctx}.
@@ -187,9 +188,15 @@ variances(Req, Ctx) ->
 resource_exists(Req, Ctx) ->
   {false, Req, Ctx}.
 
--spec moved_permanently(req(), context()) -> response({true, iolist()} | false).
+-spec moved_permanently(req(), context()) -> response( {true, WhereTo::iolist()}
+                                                     | false
+                                                     ).
 moved_permanently(Req, Ctx) ->
-  {{true, <<"/aaa">>}, Req, Ctx}.
+  {false, Req, Ctx}.
+
+-spec is_conflict(req(), context()) -> response(boolean()).
+is_conflict(Req, Ctx) ->
+  {true, Req, Ctx}.
 
 
 %%% Local Variables:

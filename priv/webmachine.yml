@@ -91,5 +91,6 @@ __flows__:
     unrest_webmachine:
       - v3i4_moved_permanently
       - v3p3_conflict
+      # TODO: continue to creating new resource
       - dummy_output
 

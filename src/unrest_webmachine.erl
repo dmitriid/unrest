@@ -51,7 +51,7 @@
 
 %% Existence and redirection
 %% webmachine_non_existing_resource_flow
--export([ v3i4_moved_permanently/1
+-export([ v3i4_v3k5_moved_permanently/1
         , v3p3_conflict/1
         ]).
 
@@ -441,8 +441,8 @@ v3l7_is_post(Ctx0) ->
       error_response(404, Ctx)
   end.
 
--spec v3i4_moved_permanently(context()) -> flow_result().
-v3i4_moved_permanently(Ctx0) ->
+-spec v3i4_v3k5_moved_permanently(context()) -> flow_result().
+v3i4_v3k5_moved_permanently(Ctx0) ->
   case resource_call(moved_permanently, Ctx0) of
     not_implemented ->
       {ok, Ctx0};
@@ -453,13 +453,12 @@ v3i4_moved_permanently(Ctx0) ->
     {{true, MovedUri}, Req0, ResCtx} ->
       Req = cowboy_req:set_resp_header(<<"location">>, MovedUri, Req0),
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      io:format("here ~p~n", [req(Ctx)]),
       error_response(301, Ctx)
   end.
 
 -spec v3p3_conflict(context()) -> flow_result().
 v3p3_conflict(Ctx) ->
-  {ok, Ctx}.
+  decision(resource_call(is_conflict, Ctx), false, 409, Ctx).
 
 %%_* Internal ==================================================================
 
