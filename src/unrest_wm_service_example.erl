@@ -33,8 +33,9 @@
 -export([ content_types_provided/2
         , languages_provided/2
         , charsets_provided/2
+        , encodings_provided/2
         , variances/2
-        ]
+]
        ).
 
 %%_* Types =====================================================================
@@ -151,6 +152,20 @@ languages_provided(Req, Ctx) ->
 -spec charsets_provided(req(), context()) -> response([binary()]).
 charsets_provided(Req, Ctx) ->
   {[<<"utf-8">>], Req, Ctx}.
+
+%%
+%% @doc encodings_provided/2 should return a list of encodings and their
+%%      corresponding callback functions. Encodings are either a tupe
+%%      {binary(), Quality::float} or just binary(). Returning a tuple
+%%      is more efficient.
+%%
+%%      "identity;q=1.0" will be used by default, if this callback is not
+%%      provided
+%%
+-spec encodings_provided(req(), context()) -> response([encoding()]).
+-type encoding() :: {Name::binary(), Quality::float()} | binary().
+encodings_provided(Req, Ctx) ->
+  {[{<<"identity">>, fun(X) -> X end}], Req, Ctx}.
 
 %% @doc variances/2 should return a list of headers that will be added
 %%      to the Vary response header. The Accept, Accept-Language,

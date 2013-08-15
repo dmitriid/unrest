@@ -297,18 +297,46 @@ v3e5_accept_charset(Ctx0) ->
       end
   end.
 
-%% @todo Match for identity as we provide nothing else for now.
-%% @todo Don't forget to set the Content-Encoding header when we reply a body
-%%       and the found encoding is something other than identity.
 -spec v3f6_accept_encoding(context()) -> flow_result().
-v3f6_accept_encoding(Ctx) ->
-  {ok, Ctx}.
+v3f6_accept_encoding(Ctx0) ->
+  case resource_call(encodings_provided, Ctx0) of
+    not_implemented ->
+      set_content_encoding(Ctx0);
+    {_, _} = HaltOrError ->
+      error_response(HaltOrError, Ctx0);
+    {[], Req, ResCtx} ->
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      error_response(406, Ctx);
+    {EncodingMap, Req0, ResCtx} ->
+      Encodings = [normalize_encoding(Enc) || {Enc, _Fun} <- EncodingMap],
+      {ok, Ctx1} = unrest_context:multiset( [ {encodings_provided, Encodings}
+                                            , {encodings_map, EncodingMap}
+                                            ]
+                                          , Ctx0
+                                          ),
+      case cowboy_req:parse_header(<<"accept-encoding">>, Req0) of
+        {error, badarg} ->
+          error_response(406, Ctx1);
+        {ok, undefined, Req1} ->
+          {ok, Ctx2} = update_context(Req1, ResCtx, Ctx1),
+          {ok, Ctx} = unrest_context:set(encoding_a, hd(Encodings), Ctx2),
+          set_content_encoding(Ctx);
+        {ok, AcceptEncoding0, Req1} ->
+          AcceptEncoding1 = [  normalize_encoding(Enc)
+                            || {Enc, _Fun} <- AcceptEncoding0
+                            ],
+          {ok, Ctx} = update_context(Req1, ResCtx, Ctx1),
+          AcceptEncoding = prioritize_encodings(AcceptEncoding1),
+          choose_encoding(AcceptEncoding, Ctx)
+      end
+  end.
 
 -spec v3g7_variances(context()) -> flow_result().
 v3g7_variances(Ctx0) ->
   {ok, CTP} = unrest_context:get(content_types_provided, Ctx0),
   {ok, LP} = unrest_context:get(languages_provided, Ctx0),
   {ok, CP} = unrest_context:get(charsets_provided, Ctx0),
+  {ok, EP} = unrest_context:get(encodings_provided, Ctx0),
   Variances = case CTP of
                 [] -> [];
                 [_] -> [];
@@ -324,15 +352,20 @@ v3g7_variances(Ctx0) ->
                  [_] -> Variances2;
                  [_|_] -> [<<"accept-charset">>|Variances2]
                end,
+  Variances4 = case EP of
+                 [] -> Variances3;
+                 [_] -> Variances3;
+                 [_|_] -> [<<"accept-encoding">>|Variances3]
+               end,
 
   case resource_call(variances, Ctx0) of
     not_implemented ->
-      variances(Variances3, Ctx0);
+      variances(Variances4, Ctx0);
     {_, _} = HaltOrError ->
       error_response(HaltOrError, Ctx0);
     {HandlerVariances, Req, ResCtx} ->
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      variances(HandlerVariances ++ Variances3, Ctx)
+      variances(HandlerVariances ++ Variances4, Ctx)
   end.
 
 %%_* Internal ==================================================================
@@ -601,6 +634,53 @@ match_charset({Provided, _}, [Provided | _], _Accept, Ctx0) ->
 match_charset(Charset, [_ | Tail], Accept, Ctx) ->
   match_charset(Charset, Tail, Accept, Ctx).
 
+normalize_encoding(Encoding0) when is_binary(Encoding0) ->
+  [Encoding] = cowboy_http:list(Encoding0, fun cowboy_http:conneg/2),
+  Encoding;
+normalize_encoding(NormalizedEncoding) ->
+  NormalizedEncoding.
+
+prioritize_encodings(AcceptEncodings) ->
+  AcceptEncodings2 = lists:sort(
+    fun({_EncA, QualityA}, {_EncB, QualityB}) ->
+      QualityA > QualityB
+    end, AcceptEncodings),
+  case lists:keymember(<<"*">>, 1, AcceptEncodings2) of
+    true -> AcceptEncodings2;
+    false ->
+      case lists:keymember(<<"identity">>, 1, AcceptEncodings2) of
+        true -> AcceptEncodings2;
+        false -> [{<<"identity">>, 1000}|AcceptEncodings2]
+      end
+  end.
+
+choose_encoding([], Ctx) ->
+  error_response(406, Ctx);
+choose_encoding([Encoding | Tail], Ctx) ->
+  {ok, EncodingsProvided} = unrest_context:get(encodings_provided, Ctx),
+  match_encoding(Encoding, EncodingsProvided, Tail, Ctx).
+
+match_encoding(_, [], Accept, Ctx) ->
+  choose_encoding(Accept, Ctx);
+match_encoding({Provided, _}, [{Provided, _} | _], _Accept, Ctx0) ->
+  {ok, Ctx} = unrest_context:set(encoding_a, Provided, Ctx0),
+  set_content_encoding(Ctx);
+match_encoding(Encoding, [_ | Tail], Accept, Ctx) ->
+  match_encoding(Encoding, Tail, Accept, Ctx).
+
+variances(Variances, Ctx0) ->
+  {ok, Ctx} = case [[<<", ">>, V] || V <- Variances] of
+                 [] ->
+                   {ok, Ctx0};
+                 [[<<", ">>, H]|Variances5] ->
+                   Req0 = req(Ctx0),
+                   Req = cowboy_req:set_resp_header( <<"vary">>
+                                                   , [H|Variances5]
+                                                   , Req0
+                                                   ),
+                   unrest_context:set(req, Req, Ctx0)
+               end,
+  set_content_type(Ctx).
 
 set_content_type(Ctx0) ->
   {ok, {{Type, SubType, Params}, _Fun}} =
@@ -614,8 +694,8 @@ set_content_type(Ctx0) ->
                  end,
   Req0 = req(Ctx0),
   Req1 = cowboy_req:set_resp_header(<<"content-type">>, ContentType2, Req0),
-  unrest_context:multiset( [ {req, Req1}
-                           , {charset, Charset}
+  unrest_context:multiset( [ {req,      Req1}
+                           , {charset,  Charset}
                            ]
                          , Ctx0
                          ).
@@ -629,15 +709,19 @@ set_content_type_build_params([], Acc) ->
 set_content_type_build_params([{Attr, Value}|Tail], Acc) ->
   set_content_type_build_params(Tail, [[Attr, <<"=">>, Value], <<";">>|Acc]).
 
-variances(Variances, Ctx) ->
-  case [[<<", ">>, V] || V <- Variances] of
-    [] ->
-      {ok, Ctx};
-    [[<<", ">>, H]|Variances5] ->
-      Req0 = req(Ctx),
-      Req = cowboy_req:set_resp_header(<<"vary">>, [H|Variances5], Req0),
-      unrest_context:set(req, Req, Ctx)
-  end.
+set_content_encoding(Ctx0) ->
+  {ok, Encoding} = unrest_context:get( encoding_a
+                                     , Ctx0
+                                     , <<"identity;q=1.0,*;q=0.5">>
+                                     ),
+  Req0 = req(Ctx0),
+  Req1 = cowboy_req:set_resp_header(<<"content-encoding">>, Encoding, Req0),
+  unrest_context:multiset( [ {req, Req1}
+                           , {encoding, Encoding}
+                           ]
+                          , Ctx0
+                         ).
+
 
 %%_* Defaults ==================================================================
 
@@ -696,7 +780,7 @@ default(charsets_provided) ->
     %    an example of how one might do actual negotiation
     %    [{"iso-8859-1", fun(X) -> X end}, {"utf-8", make_utf8}];
 default(encodings_provided) ->
-    [{"identity", fun(X) -> X end}];
+    [{<<"identity">>, fun(X) -> X end}];
     % this is handy for auto-gzip of GET-only resources:
     %    [{"identity", fun(X) -> X end}, {"gzip", fun(X) -> zlib:gzip(X) end}];
 default(variances) ->
