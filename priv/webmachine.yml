@@ -45,6 +45,14 @@ a regular webmachine resource. Notable differences:
     resource_module: unrest_wm_service_example
     __flow__:
       __flow__: webmachine_flow
+  POST:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
+  DELETE:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
 
 
 __flows__:
@@ -86,11 +94,19 @@ __flows__:
       - v3i7_is_put
       - v3k7_previously_existed
       - v3l7_is_post
+      - v3m7_allow_post_to_missing_resource
       - dummy_output
   webmachine_non_existing_put_flow:
     unrest_webmachine:
-      - v3i4_moved_permanently
+      - v3i4_v3k5_moved_permanently
       - v3p3_conflict
       # TODO: continue to creating new resource
       - dummy_output
-
+  webmachine_non_existing_previously_existed_flow:
+    unrest_webmachine:
+      - v3i4_v3k5_moved_permanently
+      - v3l5_moved_temporarily
+      - v3m5_is_post
+      - v3n5_allow_post_to_missing_resource
+      # TODO: continue to creating new resource
+      - dummy_output

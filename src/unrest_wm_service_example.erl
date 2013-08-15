@@ -41,8 +41,11 @@
 %% Existence and redirection
 -export([ resource_exists/2
         , moved_permanently/2
+        , moved_temporarily/2
+        , previously_existed/2
+        , allow_missing_post/2
         , is_conflict/2
-        ]
+]
        ).
 
 %%_* Types =====================================================================
@@ -75,7 +78,7 @@ service_available(Req, Ctx) ->
 
 -spec known_methods(req(), context()) -> response([binary()]).
 known_methods(Req, Ctx) ->
-  {[<<"GET">>, <<"OPTIONS">>, <<"PUT">>], Req, Ctx}.
+  {[<<"GET">>, <<"OPTIONS">>, <<"PUT">>, <<"POST">>, <<"DELETE">>], Req, Ctx}.
 
 -spec uri_too_long(req(), context()) -> response(boolean()).
 uri_too_long(Req, Ctx) ->
@@ -83,7 +86,7 @@ uri_too_long(Req, Ctx) ->
 
 -spec allowed_methods(req(), context()) -> response([binary()]).
 allowed_methods(Req, Ctx) ->
-  {[<<"GET">>, <<"OPTIONS">>, <<"PUT">>], Req, Ctx}.
+  {[<<"GET">>, <<"OPTIONS">>, <<"PUT">>, <<"POST">>, <<"DELETE">>], Req, Ctx}.
 
 %% @doc The `validate_content_checksum` function is undocumented in webmachine
 %%      docs. It's triggered when Content-MD5 header is present
@@ -188,15 +191,32 @@ variances(Req, Ctx) ->
 resource_exists(Req, Ctx) ->
   {false, Req, Ctx}.
 
+-spec previously_existed(req(), context()) -> response(boolean()).
+previously_existed(Req, Ctx) ->
+  {false, Req, Ctx}.
+
+
 -spec moved_permanently(req(), context()) -> response( {true, WhereTo::iolist()}
                                                      | false
                                                      ).
 moved_permanently(Req, Ctx) ->
+  %% {{true, "/permanent-new-location"}, Req, Ctx}.
+  {false, Req, Ctx}.
+
+-spec moved_temporarily(req(), context()) -> response( {true, WhereTo :: iolist()}
+                                                     | false
+                                                     ).
+moved_temporarily(Req, Ctx) ->
+  %%{{true, "/temporary-new-location"}, Req, Ctx}.
   {false, Req, Ctx}.
 
 -spec is_conflict(req(), context()) -> response(boolean()).
 is_conflict(Req, Ctx) ->
-  {true, Req, Ctx}.
+  {false, Req, Ctx}.
+
+-spec allow_missing_post(req(), context()) -> response(boolean()).
+allow_missing_post(Req, Ctx) ->
+  {false, Req, Ctx}.
 
 
 %%% Local Variables:

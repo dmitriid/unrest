@@ -47,12 +47,20 @@
         , v3i7_is_put/1
         , v3k7_previously_existed/1
         , v3l7_is_post/1
+        , v3m7_allow_post_to_missing_resource/1
         ]).
 
 %% Existence and redirection
-%% webmachine_non_existing_resource_flow
+%% webmachine_non_existing_put_flow
 -export([ v3i4_v3k5_moved_permanently/1
         , v3p3_conflict/1
+        ]).
+
+%% Existence and redirection
+%% webmachine_non_existing_previously_existed_flow
+-export([ v3l5_moved_temporarily/1
+        , v3m5_is_post/1
+        , v3n5_allow_post_to_missing_resource/1
         ]).
 
 
@@ -426,8 +434,8 @@ v3k7_previously_existed(Ctx) ->
     {false, Req, ResCtx} ->
       update_context(Req, ResCtx, Ctx);
     {true, Req, ResCtx} ->
-      %% TODO: redirect to non_existing_previously_existed flow
-      update_context(Req, ResCtx, Ctx)
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx),
+      {flow, <<"webmachine_non_existing_previously_existed_flow">>, Ctx}
   end.
 
 -spec v3l7_is_post(context()) -> flow_result().
@@ -456,9 +464,64 @@ v3i4_v3k5_moved_permanently(Ctx0) ->
       error_response(301, Ctx)
   end.
 
+-spec v3l5_moved_temporarily(context()) -> flow_result().
+v3l5_moved_temporarily(Ctx0) ->
+  case resource_call(moved_temporarily, Ctx0) of
+    not_implemented ->
+      {ok, Ctx0};
+    {_, _} = HaltOrError ->
+      error_response(HaltOrError, Ctx0);
+    {false, Req, ResCtx} ->
+      update_context(Req, ResCtx, Ctx0);
+    {{true, MovedUri}, Req0, ResCtx} ->
+      Req = cowboy_req:set_resp_header(<<"location">>, MovedUri, Req0),
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      error_response(302, Ctx)
+  end.
+
 -spec v3p3_conflict(context()) -> flow_result().
 v3p3_conflict(Ctx) ->
   decision(resource_call(is_conflict, Ctx), false, 409, Ctx).
+
+-spec v3m5_is_post(context()) -> flow_result().
+v3m5_is_post(Ctx0) ->
+  {Method, Ctx} = method(Ctx0),
+  case Method of
+    <<"POST">> ->
+      {ok, Ctx};
+    _ ->
+      error_response(410, Ctx)
+  end.
+
+-spec v3m7_allow_post_to_missing_resource(context()) -> flow_result().
+v3m7_allow_post_to_missing_resource(Ctx0) ->
+  case resource_call(allow_missing_post, Ctx0) of
+    not_implemented ->
+      {ok, Ctx0};
+    {_, _} = HaltOrError ->
+      error_response(HaltOrError, Ctx0);
+    {false, Req, ResCtx} ->
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      error_response(404, Ctx);
+    {true, Req, ResCtx} ->
+      %% TODO: redirect to non_existing_post_flow
+      update_context(Req, ResCtx, Ctx0)
+  end.
+
+-spec v3n5_allow_post_to_missing_resource(context()) -> flow_result().
+v3n5_allow_post_to_missing_resource(Ctx0) ->
+  case resource_call(allow_missing_post, Ctx0) of
+    not_implemented ->
+      {ok, Ctx0};
+    {_, _} = HaltOrError ->
+      error_response(HaltOrError, Ctx0);
+    {false, Req, ResCtx} ->
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      error_response(410, Ctx);
+    {true, Req, ResCtx} ->
+      %% TODO: redirect to non_existing_post_flow
+      update_context(Req, ResCtx, Ctx0)
+  end.
 
 %%_* Internal ==================================================================
 
