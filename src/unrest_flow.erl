@@ -102,17 +102,18 @@ run([Fun | Rest], Context) when is_function(Fun, 1) ->
 -spec handle_result(flow_result(), [service_spec()]) ->
                                           flow_result() | {ok, cowboy_req:req()}.
 handle_result({flow, FlowName, Context}, _) ->
-  Flows = unrest_context:get(flows, Context),
+  {ok, Flows} = unrest_context:get(flows, Context),
   case Flows of
-    [_] ->
-      Flow = unrest_context:get(FlowName, Flows),
+    _ when is_list(Flows) ->
+      Flow = proplists:get_value(FlowName, Flows),
       case Flow of
-        [_] -> run(Flow, Context);
-        _   -> error({undefined_flow, FlowName})
+        _ when is_list(Flow) -> run(Flow, Context);
+        _                    -> error({undefined_flow, FlowName})
       end;
     _   ->
-      lager:error( "Undefined flow ~p. Callstack: ~p"
-                 , [FlowName, unrest_context:callstack(Context)]
+      AvailableFlows = proplists:get_keys(Flows),
+      lager:error( "Undefined flow ~p.~nAvailable flows: ~p.~nCallstack: ~p.~n"
+                 , [FlowName, AvailableFlows, unrest_context:callstack(Context)]
                  ),
       error({undefined_flow, FlowName})
   end;
