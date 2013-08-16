@@ -844,10 +844,11 @@ set_content_type_build_params([{Attr, Value}|Tail], Acc) ->
   set_content_type_build_params(Tail, [[Attr, <<"=">>, Value], <<";">>|Acc]).
 
 set_content_encoding(Ctx0) ->
-  {ok, Encoding} = unrest_context:get( encoding_a
-                                     , Ctx0
-                                     , <<"identity;q=1.0,*;q=0.5">>
-                                     ),
+  {ok, Encoding0} = unrest_context:get( encoding_a
+                                      , Ctx0
+                                      , <<"identity;q=1.0,*;q=0.5">>
+                                      ),
+  Encoding = case Encoding0 of {Enc, _Q} -> Enc; _ -> Encoding0 end,
   Req0 = req(Ctx0),
   Req1 = cowboy_req:set_resp_header(<<"content-encoding">>, Encoding, Req0),
   unrest_context:multiset( [ {req, Req1}
