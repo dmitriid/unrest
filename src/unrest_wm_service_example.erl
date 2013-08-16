@@ -50,6 +50,7 @@
 
 %% Conditional request
 -export([ generate_etag/2
+        , last_modified/2
         ]
        ).
 
@@ -242,6 +243,13 @@ allow_missing_post(Req, Ctx) ->
 -type etag_strength() :: strong | weak | atom().
 generate_etag(Req, Ctx) ->
   {<<"\"a value\"">>, Req, Ctx}.
+
+%% @doc Return date in the format {{Year, Month, Day}, {Hour, Minute, Second}}
+-spec last_modified(req(), context()) -> response(tuple()).
+last_modified(Req, Ctx) ->
+  {{Y, M, D}, Time} = erlang:universaltime(),
+  Yesteryear = Y - 1,
+  {{{Yesteryear, M, D}, Time}, Req, Ctx}.
 
 
 %%% Local Variables:

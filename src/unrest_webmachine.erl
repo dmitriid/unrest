@@ -512,6 +512,8 @@ v3n5_allow_post_to_missing_resource(Ctx) ->
 v3g8_if_match(Ctx0) ->
   Req0 = req(Ctx0),
   case cowboy_req:parse_header(<<"if-match">>, Req0) of
+    {error, bad_arg} ->
+      error_response(412, Ctx0);
     {ok, undefined, Req} ->
       unrest_context:set(req, Req, Ctx0);
     {ok, '*', Req} ->
@@ -522,8 +524,17 @@ v3g8_if_match(Ctx0) ->
   end.
 
 -spec v3h10_if_unmodified_since(context()) -> flow_result().
-v3h10_if_unmodified_since(Ctx) ->
-  {ok, Ctx}.
+v3h10_if_unmodified_since(Ctx0) ->
+  Req0 = req(Ctx0),
+  case cowboy_req:parse_header(<<"if-unmodified-since">>, Req0) of
+    {error, badarg} ->
+      error_response(412, Ctx0);
+    {ok, undefined, Req} ->
+      unrest_context:set(req, Req, Ctx0);
+    {ok, IfUnModifiedSince, Req} ->
+      {ok, Ctx} = unrest_context:set(req, Req, Ctx0),
+      if_unmodified_since(IfUnModifiedSince, Ctx)
+  end.
 
 -spec v3i12_if_none_match(context()) -> flow_result().
 v3i12_if_none_match(Ctx) ->
@@ -920,6 +931,25 @@ generate_etag(Ctx0) ->
       end;
     {ok, Etag} ->
       {Etag, Ctx0}
+  end.
+
+if_unmodified_since(IfUnModifiedSince, Ctx0) ->
+  case IfUnModifiedSince > erlang:universaltime() of
+    true  -> {ok, Ctx0};
+    false ->
+      case resource_call(last_modified, Ctx0) of
+        not_implemented ->
+          {ok, Ctx0};
+        {_, _} = HaltOrError ->
+          error_response(HaltOrError, Ctx0);
+        {LastModified, Req, ResCtx} ->
+          {ok, Ctx1} = update_context(Req, ResCtx, Ctx0),
+          {ok, Ctx}  = unrest_context:set(last_modified, LastModified, Ctx1),
+          case LastModified > IfUnModifiedSince of
+            true  -> error_response(412, Ctx);
+            false -> {ok, Ctx}
+          end
+      end
   end.
 
 %%_* Defaults ==================================================================
