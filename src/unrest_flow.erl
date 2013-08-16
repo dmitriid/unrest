@@ -65,6 +65,7 @@ run(List) ->
 run([], Context) ->
   {ok, Context};
 run([{Module, Fun} | Rest], Context) when is_atom(Module), is_atom(Fun) ->
+  io:format("{~p, ~p}~n", [Module, Fun]),
   {ok, Ctx} = unrest_context:callstack_push({Module, Fun}, Context),
   try
     handle_result(Module:Fun(Ctx), Rest)

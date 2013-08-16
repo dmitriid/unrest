@@ -45,7 +45,12 @@
         , previously_existed/2
         , allow_missing_post/2
         , is_conflict/2
-]
+        ]
+       ).
+
+%% Conditional request
+-export([ generate_etag/2
+        ]
        ).
 
 %%_* Types =====================================================================
@@ -189,7 +194,7 @@ variances(Req, Ctx) ->
 
 -spec resource_exists(req(), context()) -> response(boolean()).
 resource_exists(Req, Ctx) ->
-  {false, Req, Ctx}.
+  {true, Req, Ctx}.
 
 -spec previously_existed(req(), context()) -> response(boolean()).
 previously_existed(Req, Ctx) ->
@@ -216,7 +221,27 @@ is_conflict(Req, Ctx) ->
 
 -spec allow_missing_post(req(), context()) -> response(boolean()).
 allow_missing_post(Req, Ctx) ->
-  {false, Req, Ctx}.
+  {true, Req, Ctx}.
+
+%%_* conditional request -------------------------------------------------------
+
+%%
+%% @doc An ETag is either a tuple, containing etag strength and value or
+%%      a binary containing a valid etag value (a quoted string or
+%%      W/"quoted string"):
+%%
+%%      {strong, "some etag value"}
+%%      {weak,   "another etag value"}
+%%      <<"\"an etag value\"">>
+%%      <<"W/\"another_value\"">>
+%%      <<"*">>
+%%
+-spec generate_etag(req(), context()) -> response( {etag_strength(), string()}
+                                                 | binary()
+                                                 ).
+-type etag_strength() :: strong | weak | atom().
+generate_etag(Req, Ctx) ->
+  {<<"\"a value\"">>, Req, Ctx}.
 
 
 %%% Local Variables:

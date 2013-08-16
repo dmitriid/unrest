@@ -110,3 +110,11 @@ __flows__:
       - v3n5_allow_post_to_missing_resource
       # TODO: continue to creating new resource
       - dummy_output
+  webmachine_conditional_request_flow:
+    unrest_webmachine:
+      - v3g8_if_match
+      - v3h10_if_unmodified_since
+      - v3i12_if_none_match
+      - v3l13_if_modified_since
+      - dummy_output
+

@@ -63,6 +63,12 @@
         , v3n5_allow_post_to_missing_resource/1
         ]).
 
+%% Conditional request
+-export([ v3g8_if_match/1
+        , v3h10_if_unmodified_since/1
+        , v3i12_if_none_match/1
+        , v3l13_if_modified_since/1
+        ]).
 
 %% Dummy output
 %% TODO: remove once all the flows are implemented
@@ -84,7 +90,7 @@
 %% TODO: remove once all the flows are implemented
 -spec dummy_output(context()) -> flow_result().
 dummy_output(Ctx) ->
-  Trace = iolist_to_binary(io_lib:format("~p", [unrest_context:callstack(Ctx)])),
+  Trace = io_lib:format("~p", [unrest_context:callstack(Ctx)]),
   {ok, Req0} = unrest_context:get(req, Ctx),
   {ok, Req} = cowboy_req:reply(200, [], Trace, Req0),
   {respond, Req}.
@@ -403,8 +409,7 @@ v3g7_resource_exists(Ctx0) ->
   {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
   case Bool of
     true  ->
-      %% TODO: redirect to exist flow
-      {ok, Ctx};
+      {flow, <<"webmachine_conditional_request_flow">>, Ctx};
     false ->
       {flow, <<"webmachine_non_existing_resource_flow">>, Ctx}
   end.
@@ -500,6 +505,33 @@ v3m7_allow_post_to_missing_resource(Ctx) ->
 -spec v3n5_allow_post_to_missing_resource(context()) -> flow_result().
 v3n5_allow_post_to_missing_resource(Ctx) ->
   decision(resource_call(allow_missing_post, Ctx), true, 410, Ctx).
+
+%%_* Conditional Request -------------------------------------------------------
+
+-spec v3g8_if_match(context()) -> flow_result().
+v3g8_if_match(Ctx0) ->
+  Req0 = req(Ctx0),
+  case cowboy_req:parse_header(<<"if-match">>, Req0) of
+    {ok, undefined, Req} ->
+      unrest_context:set(req, Req, Ctx0);
+    {ok, '*', Req} ->
+      unrest_context:set(req, Req, Ctx0);
+    {ok, ETagsList, Req} ->
+      {ok, Ctx} = unrest_context:set(req, Req, Ctx0),
+      if_match(ETagsList, Ctx)
+  end.
+
+-spec v3h10_if_unmodified_since(context()) -> flow_result().
+v3h10_if_unmodified_since(Ctx) ->
+  {ok, Ctx}.
+
+-spec v3i12_if_none_match(context()) -> flow_result().
+v3i12_if_none_match(Ctx) ->
+  {ok, Ctx}.
+
+-spec v3l13_if_modified_since(context()) -> flow_result().
+v3l13_if_modified_since(Ctx) ->
+  {ok, Ctx}.
 
 %%_* Internal ==================================================================
 
@@ -856,6 +888,39 @@ set_content_encoding(Ctx0) ->
                            ]
                           , Ctx0
                          ).
+
+if_match(EtagList, Ctx0) ->
+  case generate_etag(Ctx0) of
+    {undefined, Ctx} ->
+      error_response(412, Ctx);
+    {Etag, Ctx} ->
+      io:format("ETAGS ~p~n~p~n", [Etag, EtagList]),
+      case lists:member(Etag, EtagList) of
+        true  -> {ok, Ctx};
+        false -> error_response(412, Ctx)
+      end
+  end.
+
+generate_etag(Ctx0) ->
+  case unrest_context:get(etag, Ctx0, undefined) of
+    {ok, no_call}   -> {undefined, Ctx0};
+    {ok, undefined} ->
+      case resource_call(generate_etag, Ctx0) of
+        not_implemented ->
+          {ok, Ctx0};
+        {_, _} = HaltOrError ->
+          error_response(HaltOrError, Ctx0);
+        {Etag0, Req, ResCtx} when is_binary(Etag0)->
+          [Etag] = cowboy_http:entity_tag_match(Etag0),
+          {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+          {Etag, Ctx};
+        {Etag, Req, ResCtx} ->
+          {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+          {Etag, Ctx}
+      end;
+    {ok, Etag} ->
+      {Etag, Ctx0}
+  end.
 
 %%_* Defaults ==================================================================
 

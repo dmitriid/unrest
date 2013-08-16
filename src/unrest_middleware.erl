@@ -42,7 +42,6 @@ run_flow(Options, Req0, Env0, Flows) ->
       Env = lists:keyreplace(habdler, 1, Env0, {handler, Module}),
       {ok, Req0, Env};
     Flow when is_list(Flow) ->
-      io:format("FLOW ~p~n~n~n", [Flow]),
       Config = [E || E = {K, _} <- Options, K /= <<"__flow__">>],
       Ctx = unrest_context:new([ {req, Req0}
                                , {flows, Flows}
