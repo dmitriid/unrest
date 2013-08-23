@@ -537,8 +537,20 @@ v3h10_if_unmodified_since(Ctx0) ->
   end.
 
 -spec v3i12_if_none_match(context()) -> flow_result().
-v3i12_if_none_match(Ctx) ->
-  {ok, Ctx}.
+v3i12_if_none_match(Ctx0) ->
+  Req0 = req(Ctx0),
+  case cowboy_req:parse_header(<<"if-none-match">>, Req0) of
+    {error, bad_arg} ->
+      error_response(412, Ctx0);
+    {ok, undefined, Req} ->
+      unrest_context:set(req, Req, Ctx0);
+    {ok, '*', Req} ->
+      {ok, Ctx} = unrest_context:set(req, Req, Ctx0),
+      if_none_match_check_method(Ctx);
+    {ok, ETagsList, Req} ->
+      {ok, Ctx} = unrest_context:set(req, Req, Ctx0),
+      if_none_match(ETagsList, Ctx)
+  end.
 
 -spec v3l13_if_modified_since(context()) -> flow_result().
 v3l13_if_modified_since(Ctx) ->
@@ -905,7 +917,6 @@ if_match(EtagList, Ctx0) ->
     {undefined, Ctx} ->
       error_response(412, Ctx);
     {Etag, Ctx} ->
-      io:format("ETAGS ~p~n~p~n", [Etag, EtagList]),
       case lists:member(Etag, EtagList) of
         true  -> {ok, Ctx};
         false -> error_response(412, Ctx)
@@ -950,6 +961,24 @@ if_unmodified_since(IfUnModifiedSince, Ctx0) ->
             false -> {ok, Ctx}
           end
       end
+  end.
+
+if_none_match(EtagList, Ctx0) ->
+  case generate_etag(Ctx0) of
+    {undefined, Ctx} ->
+      error_response(412, Ctx);
+    {Etag, Ctx} ->
+      case lists:member(Etag, EtagList) of
+        true  -> if_none_match_check_method(Ctx);
+        false -> error_response(412, Ctx)
+      end
+  end.
+
+if_none_match_check_method(Ctx0) ->
+  {Method, Ctx} = method(Ctx0),
+  case Method =:= <<"GET">> orelse Method =:= <<"HEAD">> of
+    true -> error_response(304, Ctx);
+    false -> error_response(412, Ctx)
   end.
 
 %%_* Defaults ==================================================================
