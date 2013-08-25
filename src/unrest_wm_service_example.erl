@@ -53,6 +53,16 @@
         , last_modified/2
         ]
        ).
+%% Delete resource
+-export([ delete_resource/2
+        , delete_completed/2
+        ]
+       ).
+
+%% Body
+-export([ multiple_choices/2
+        ]
+       ).
 
 %%_* Types =====================================================================
 
@@ -251,6 +261,19 @@ last_modified(Req, Ctx) ->
   Yesteryear = Y - 1,
   {{{Yesteryear, M, D}, Time}, Req, Ctx}.
 
+%%_* delete resource ----------------------------------------------------------
+-spec delete_resource(req(), context()) -> response(boolean()).
+delete_resource(Req, Ctx) ->
+  {true, Req, Ctx}.
+
+-spec delete_completed(req(), context()) -> response(boolean()).
+delete_completed(Req, Ctx) ->
+  {true, Req, Ctx}.
+
+%%_* body ---------------------------------------------------------------------
+-spec multiple_choices(req(), context()) -> response(boolean()).
+multiple_choices(Req, Ctx) ->
+  {false, Req, Ctx}.
 
 %%% Local Variables:
 %%% erlang-indent-level: 2

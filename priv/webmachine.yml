@@ -116,5 +116,19 @@ __flows__:
       - v3h10_if_unmodified_since
       - v3i12_if_none_match
       - v3l13_if_modified_since
+    __flow__: webmachine_delete_flow
+  webmachine_delete_flow:
+    unrest_webmachine:
+      - v3m16_delete
+      - v3m20_delete_enacted
+      - v3m20_delete_completed
+    __flow__: webmachine_body_flow
+  webmachine_post_flow:
+    # TODO: implement
+    unrest_webmachine:
       - dummy_output
-
+  webmachine_body_flow:
+    unrest_webmachine:
+      - v3o20_response_entity
+      - v3o18_multiple_representation
+      - v3o18_respond

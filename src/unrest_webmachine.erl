@@ -70,6 +70,18 @@
         , v3l13_if_modified_since/1
         ]).
 
+%% Delete flow
+-export([ v3m16_delete/1
+        , v3m20_delete_enacted/1
+        , v3m20_delete_completed/1
+        ]).
+
+%% Body
+-export([ v3o20_response_entity/1
+        , v3o18_multiple_representation/1
+        , v3o18_respond/1
+        ]).
+
 %% Dummy output
 %% TODO: remove once all the flows are implemented
 -export([ dummy_output/1
@@ -140,7 +152,7 @@ v3b12_known_method(Ctx0) ->
               , 501
               , Ctx
               );
-    Other -> error_response(Other, Ctx0)
+    Other -> respond(Other, Ctx0)
   end.
 
 -spec v3b11_uri_too_long(context()) -> flow_result().
@@ -161,7 +173,7 @@ v3b10_method_allowed(Ctx0) ->
               , 405
               , Ctx
               );
-    Other -> error_response(Other, Ctx0)
+    Other -> respond(Other, Ctx0)
   end.
 
 -spec v3b9_content_checksum(context()) -> flow_result().
@@ -179,15 +191,15 @@ validate_content_checksum(MD5, Ctx0) ->
       {BodyHash, Ctx} = compute_body_md5(Ctx1),
       case BodyHash =:= Checksum of
         true  -> {ok, Ctx};
-        false -> error_response(400, Ctx)
+        false -> respond(400, Ctx)
       end;
     {false, Req, ResCtx} ->
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      error_response(400, Ctx);
+      respond(400, Ctx);
     {true, Req, ResCtx} ->
       update_context(Req, ResCtx, Ctx0);
     Other ->
-      error_response(Other, Ctx0)
+      respond(Other, Ctx0)
   end.
 
 -spec v3b9_malformed_request(context()) -> flow_result().
@@ -200,11 +212,11 @@ v3b8_authorized(Ctx0) ->
     {true, Req, ResCtx} ->
       update_context(Req, ResCtx, Ctx0);
     {_, _} = HaltOrError ->
-      error_response(HaltOrError, Ctx0);
+      respond(HaltOrError, Ctx0);
     {AuthHead, Req0, ResCtx} ->
       Req = cowboy_req:set_resp_header(<<"WWW-Authenticate">>, AuthHead, Req0),
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      error_response(401, Ctx)
+      respond(401, Ctx)
   end.
 
 -spec v3b7_forbidden(context()) -> flow_result().
@@ -232,9 +244,9 @@ v3b3_options(Ctx0) ->
           F = fun({H, V}, R) -> cowboy_req:set_resp_header(H, V, R) end,
           Req = lists:foldl(F, Req0, Headers),
           {ok, Ctx} = update_context(Req, ResCtx, Ctx1),
-          error_response(200, Ctx);
+          respond(200, Ctx);
         Other ->
-          error_response(Other, Ctx0)
+          respond(Other, Ctx0)
       end;
     {_, Ctx1} ->
       {ok, Ctx1}
@@ -254,7 +266,7 @@ v3c3_accept_init(Ctx0) ->
                         , Ctx1
                         );
     Other ->
-      error_response(Other, Ctx0)
+      respond(Other, Ctx0)
   end.
 
 -spec v3c3_accept(context()) -> flow_result().
@@ -262,7 +274,7 @@ v3c3_accept(Ctx0) ->
   Req0 = req(Ctx0),
   case cowboy_req:parse_header(<<"accept">>, Req0) of
     {error, badarg} ->
-      error_response(400, Ctx0);
+      respond(400, Ctx0);
     {ok, undefined, Req} ->
       unrest_context:multiset( [ {req, Req}
                                , {media_type, {<<"text">>, <<"html">>, []}}
@@ -284,15 +296,15 @@ v3d4_accept_language(Ctx0) ->
     not_implemented ->
       {ok, Ctx0};
     {_, _} = HaltOrError ->
-      error_response(HaltOrError, Ctx0);
+      respond(HaltOrError, Ctx0);
     {[], Req, ResCtx} ->
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      error_response(406, Ctx);
+      respond(406, Ctx);
     {Languages, Req0, ResCtx} ->
       {ok, Ctx1} = unrest_context:set(languages_provided, Languages, Ctx0),
       case cowboy_req:parse_header(<<"accept-language">>, Req0) of
         {error, badarg} ->
-          error_response(406, Ctx1);
+          respond(406, Ctx1);
         {ok, undefined , Req1} ->
           Language = hd(Languages),
           {ok, Ctx} = update_context(Req1, ResCtx, Ctx1),
@@ -310,15 +322,15 @@ v3e5_accept_charset(Ctx0) ->
     not_implemented ->
       set_content_type(Ctx0);
     {_, _} = HaltOrError ->
-      error_response(HaltOrError, Ctx0);
+      respond(HaltOrError, Ctx0);
     {[], Req, ResCtx} ->
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      error_response(406, Ctx);
+      respond(406, Ctx);
     {Charsets, Req0, ResCtx} ->
       {ok, Ctx1} = unrest_context:set(charsets_provided, Charsets, Ctx0),
       case cowboy_req:parse_header(<<"accept-charset">>, Req0) of
         {error, badarg} ->
-          error_response(406, Ctx1);
+          respond(406, Ctx1);
         {ok, undefined, Req1} ->
           {ok, Ctx2} = update_context(Req1, ResCtx, Ctx1),
           {ok, Ctx}  = unrest_context:set(charset_a, hd(Charsets), Ctx2),
@@ -336,10 +348,10 @@ v3f6_accept_encoding(Ctx0) ->
     not_implemented ->
       set_content_encoding(Ctx0);
     {_, _} = HaltOrError ->
-      error_response(HaltOrError, Ctx0);
+      respond(HaltOrError, Ctx0);
     {[], Req, ResCtx} ->
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      error_response(406, Ctx);
+      respond(406, Ctx);
     {EncodingMap, Req0, ResCtx} ->
       Encodings = [normalize_encoding(Enc) || {Enc, _Fun} <- EncodingMap],
       {ok, Ctx1} = unrest_context:multiset( [ {encodings_provided, Encodings}
@@ -349,7 +361,7 @@ v3f6_accept_encoding(Ctx0) ->
                                           ),
       case cowboy_req:parse_header(<<"accept-encoding">>, Req0) of
         {error, badarg} ->
-          error_response(406, Ctx1);
+          respond(406, Ctx1);
         {ok, undefined, Req1} ->
           {ok, Ctx2} = update_context(Req1, ResCtx, Ctx1),
           {ok, Ctx} = unrest_context:set(encoding_a, hd(Encodings), Ctx2),
@@ -395,7 +407,7 @@ v3g7_variances(Ctx0) ->
     not_implemented ->
       variances(Variances4, Ctx0);
     {_, _} = HaltOrError ->
-      error_response(HaltOrError, Ctx0);
+      respond(HaltOrError, Ctx0);
     {HandlerVariances, Req, ResCtx} ->
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
       variances(HandlerVariances ++ Variances4, Ctx)
@@ -435,7 +447,7 @@ v3k7_previously_existed(Ctx) ->
     not_implemented ->
       {ok, Ctx};
     {_, _} = HaltOrError ->
-      error_response(HaltOrError, Ctx);
+      respond(HaltOrError, Ctx);
     {false, Req, ResCtx} ->
       update_context(Req, ResCtx, Ctx);
     {true, Req, ResCtx} ->
@@ -451,7 +463,7 @@ v3l7_is_post(Ctx0) ->
       %% TODO: redirect to non_existing_post_flow
       {ok, Ctx};
     _ ->
-      error_response(404, Ctx)
+      respond(404, Ctx)
   end.
 
 -spec v3i4_v3k5_moved_permanently(context()) -> flow_result().
@@ -460,13 +472,13 @@ v3i4_v3k5_moved_permanently(Ctx0) ->
     not_implemented ->
       {ok, Ctx0};
     {_, _} = HaltOrError ->
-      error_response(HaltOrError, Ctx0);
+      respond(HaltOrError, Ctx0);
     {false, Req, ResCtx} ->
       update_context(Req, ResCtx, Ctx0);
     {{true, MovedUri}, Req0, ResCtx} ->
       Req = cowboy_req:set_resp_header(<<"location">>, MovedUri, Req0),
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      error_response(301, Ctx)
+      respond(301, Ctx)
   end.
 
 -spec v3l5_moved_temporarily(context()) -> flow_result().
@@ -475,13 +487,13 @@ v3l5_moved_temporarily(Ctx0) ->
     not_implemented ->
       {ok, Ctx0};
     {_, _} = HaltOrError ->
-      error_response(HaltOrError, Ctx0);
+      respond(HaltOrError, Ctx0);
     {false, Req, ResCtx} ->
       update_context(Req, ResCtx, Ctx0);
     {{true, MovedUri}, Req0, ResCtx} ->
       Req = cowboy_req:set_resp_header(<<"location">>, MovedUri, Req0),
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-      error_response(302, Ctx)
+      respond(302, Ctx)
   end.
 
 -spec v3p3_conflict(context()) -> flow_result().
@@ -495,7 +507,7 @@ v3m5_is_post(Ctx0) ->
     <<"POST">> ->
       {ok, Ctx};
     _ ->
-      error_response(410, Ctx)
+      respond(410, Ctx)
   end.
 
 -spec v3m7_allow_post_to_missing_resource(context()) -> flow_result().
@@ -513,7 +525,7 @@ v3g8_if_match(Ctx0) ->
   Req0 = req(Ctx0),
   case cowboy_req:parse_header(<<"if-match">>, Req0) of
     {error, bad_arg} ->
-      error_response(412, Ctx0);
+      respond(412, Ctx0);
     {ok, undefined, Req} ->
       unrest_context:set(req, Req, Ctx0);
     {ok, '*', Req} ->
@@ -528,7 +540,7 @@ v3h10_if_unmodified_since(Ctx0) ->
   Req0 = req(Ctx0),
   case cowboy_req:parse_header(<<"if-unmodified-since">>, Req0) of
     {error, badarg} ->
-      error_response(412, Ctx0);
+      respond(412, Ctx0);
     {ok, undefined, Req} ->
       unrest_context:set(req, Req, Ctx0);
     {ok, IfUnModifiedSince, Req} ->
@@ -541,7 +553,7 @@ v3i12_if_none_match(Ctx0) ->
   Req0 = req(Ctx0),
   case cowboy_req:parse_header(<<"if-none-match">>, Req0) of
     {error, bad_arg} ->
-      error_response(412, Ctx0);
+      respond(412, Ctx0);
     {ok, undefined, Req} ->
       unrest_context:set(req, Req, Ctx0);
     {ok, '*', Req} ->
@@ -557,13 +569,43 @@ v3l13_if_modified_since(Ctx0) ->
   Req0 = req(Ctx0),
   case cowboy_req:parse_header(<<"if-modified-since">>, Req0) of
     {error, badarg} ->
-      error_response(412, Ctx0);
+      respond(412, Ctx0);
     {ok, undefined, Req} ->
       unrest_context:set(req, Req, Ctx0);
     {ok, IfModifiedSince, Req} ->
       {ok, Ctx} = unrest_context:set(req, Req, Ctx0),
       if_modified_since(IfModifiedSince, Ctx)
   end.
+
+-spec v3m16_delete(context()) -> flow_result().
+v3m16_delete(Ctx0) ->
+  case method(Ctx0) of
+    {<<"DELETE">>, Ctx} ->
+      {ok, Ctx};
+    {_, Ctx} ->
+      {flow, <<"webmachine_post_flow">>, Ctx}
+  end.
+
+-spec v3m20_delete_enacted(context()) -> flow_result().
+v3m20_delete_enacted(Ctx) ->
+  decision(resource_call(delete_resource, Ctx), true, 500, Ctx).
+
+-spec v3m20_delete_completed(context()) -> flow_result().
+v3m20_delete_completed(Ctx) ->
+  decision(resource_call(delete_completed, Ctx), true, 202, Ctx).
+
+-spec v3o20_response_entity(context()) -> flow_result().
+v3o20_response_entity(Ctx) ->
+  io:format("AAA ~p~n", [cowboy_req:has_resp_body(req(Ctx))]),
+  decision(cowboy_req:has_resp_body(req(Ctx)), true, 204, Ctx).
+
+-spec v3o18_multiple_representation(context()) -> flow_result().
+v3o18_multiple_representation(Ctx) ->
+  decision(resource_call(multiple_choices, Ctx), false, 300, Ctx).
+
+-spec v3o18_respond(context()) -> flow_result().
+v3o18_respond(Ctx) ->
+  respond(200, Ctx).
 
 %%_* Internal ==================================================================
 
@@ -592,24 +634,24 @@ decision({Response, Req, ResCtx}, Response, _, Ctx0) ->
   update_context(Req, ResCtx, Ctx0);
 decision({_, Req, ResCtx}, _, Code, Ctx0) ->
   {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
-  error_response(Code, Ctx);
+  respond(Code, Ctx);
 decision({error, Reason}, _, _, Ctx) ->
-  error_response(Reason, Ctx);
+  respond(Reason, Ctx);
 decision({halt, Code}, _, _, Ctx) ->
-  error_response(Code, Ctx);
+  respond(Code, Ctx);
 decision(not_implemented, _, _, Ctx) ->
-  error_response(not_implemented, Ctx);
+  respond(not_implemented, Ctx);
 decision(Expected, Expected, _, Ctx) ->
   {ok, Ctx};
 decision(_, _, Code, Ctx) ->
-  error_response(Code, Ctx).
+  respond(Code, Ctx).
 
 
-error_response({error, Reason}, Ctx) ->
-  error_response(Reason, Ctx);
-error_response({halt, Code}, Ctx) ->
-  error_response(Code, Ctx);
-error_response(Code, Ctx) when is_integer(Code) ->
+respond({error, Reason}, Ctx) ->
+  respond(Reason, Ctx);
+respond({halt, Code}, Ctx) ->
+  respond(Code, Ctx);
+respond(Code, Ctx) when is_integer(Code) ->
   {ok, Resource} = unrest_context:get(resource_module, Ctx),
   {ok, Callstack} = unrest_context:callstack(Ctx),
   lager:info("Resource call finished with code ~p. "
@@ -619,7 +661,7 @@ error_response(Code, Ctx) when is_integer(Code) ->
   Req0 = req(Ctx),
   {ok, Req}  = cowboy_req:reply(Code, Req0),
   {respond, Req};
-error_response(Reason, Ctx) ->
+respond(Reason, Ctx) ->
   {ok, Resource} = unrest_context:get(resource_module, Ctx),
   {ok, Callstack} = unrest_context:callstack(Ctx),
   lager:info( "Resource call finished with error ~p. "
@@ -697,7 +739,7 @@ prioritize_mediatype({TypeA, SubTypeA, ParamsA}, {TypeB, SubTypeB, ParamsB}) ->
 
 %% Ignoring the rare AcceptParams. Not sure what should be done about them.
 choose_media_type([], Ctx) ->
-  error_response(406, Ctx);
+  respond(406, Ctx);
 choose_media_type(Accept, Ctx) ->
   {ok, ContentTypes} = unrest_context:get(content_types_provided, Ctx),
   match_media_type(Accept, ContentTypes, Ctx).
@@ -763,7 +805,7 @@ prioritize_languages(AcceptLanguages) ->
     end, AcceptLanguages).
 
 choose_language([], Ctx) ->
-  error_response(406, Ctx);
+  respond(406, Ctx);
 choose_language([Language | Tail], Ctx) ->
   {ok, LanguagesProvided} = unrest_context:get(languages_provided, Ctx),
   match_language(Language, LanguagesProvided, Tail, Ctx).
@@ -819,7 +861,7 @@ prioritize_charsets(AcceptCharsets) ->
   end.
 
 choose_charset([], Ctx) ->
-  error_response(406, Ctx);
+  respond(406, Ctx);
 choose_charset([Charset | Tail], Ctx) ->
   {ok, CharsetsProvided} = unrest_context:get(charsets_provided, Ctx),
   match_charset(Charset, CharsetsProvided, Tail, Ctx).
@@ -853,7 +895,7 @@ prioritize_encodings(AcceptEncodings) ->
   end.
 
 choose_encoding([], Ctx) ->
-  error_response(406, Ctx);
+  respond(406, Ctx);
 choose_encoding([Encoding | Tail], Ctx) ->
   {ok, EncodingsProvided} = unrest_context:get(encodings_provided, Ctx),
   match_encoding(Encoding, EncodingsProvided, Tail, Ctx).
@@ -924,11 +966,11 @@ set_content_encoding(Ctx0) ->
 if_match(EtagList, Ctx0) ->
   case generate_etag(Ctx0) of
     {undefined, Ctx} ->
-      error_response(412, Ctx);
+      respond(412, Ctx);
     {Etag, Ctx} ->
       case lists:member(Etag, EtagList) of
         true  -> {ok, Ctx};
-        false -> error_response(412, Ctx)
+        false -> respond(412, Ctx)
       end
   end.
 
@@ -940,7 +982,7 @@ generate_etag(Ctx0) ->
         not_implemented ->
           {ok, Ctx0};
         {_, _} = HaltOrError ->
-          error_response(HaltOrError, Ctx0);
+          respond(HaltOrError, Ctx0);
         {Etag0, Req, ResCtx} when is_binary(Etag0)->
           [Etag] = cowboy_http:entity_tag_match(Etag0),
           {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
@@ -961,12 +1003,12 @@ if_unmodified_since(IfUnModifiedSince, Ctx0) ->
         not_implemented ->
           {ok, Ctx0};
         {_, _} = HaltOrError ->
-          error_response(HaltOrError, Ctx0);
+          respond(HaltOrError, Ctx0);
         {LastModified, Req, ResCtx} ->
           {ok, Ctx1} = update_context(Req, ResCtx, Ctx0),
           {ok, Ctx}  = unrest_context:set(last_modified, LastModified, Ctx1),
           case LastModified > IfUnModifiedSince of
-            true  -> error_response(412, Ctx);
+            true  -> respond(412, Ctx);
             false -> {ok, Ctx}
           end
       end
@@ -975,19 +1017,19 @@ if_unmodified_since(IfUnModifiedSince, Ctx0) ->
 if_none_match(EtagList, Ctx0) ->
   case generate_etag(Ctx0) of
     {undefined, Ctx} ->
-      error_response(412, Ctx);
+      respond(412, Ctx);
     {Etag, Ctx} ->
       case lists:member(Etag, EtagList) of
         true  -> if_none_match_check_method(Ctx);
-        false -> error_response(412, Ctx)
+        false -> respond(412, Ctx)
       end
   end.
 
 if_none_match_check_method(Ctx0) ->
   {Method, Ctx} = method(Ctx0),
   case Method =:= <<"GET">> orelse Method =:= <<"HEAD">> of
-    true -> error_response(304, Ctx);
-    false -> error_response(412, Ctx)
+    true -> respond(304, Ctx);
+    false -> respond(412, Ctx)
   end.
 
 if_modified_since(IfModifiedSince, Ctx0) ->
@@ -998,13 +1040,13 @@ if_modified_since(IfModifiedSince, Ctx0) ->
         not_implemented ->
           {ok, Ctx0};
         {_, _} = HaltOrError ->
-          error_response(HaltOrError, Ctx0);
+          respond(HaltOrError, Ctx0);
         {LastModified, Req, ResCtx} ->
           {ok, Ctx1} = update_context(Req, ResCtx, Ctx0),
           {ok, Ctx}  = unrest_context:set(last_modified, LastModified, Ctx1),
           case LastModified > IfModifiedSince of
             true  -> {ok, Ctx};
-            false -> error_response(304, Ctx)
+            false -> respond(304, Ctx)
           end
       end
   end.
