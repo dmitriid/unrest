@@ -553,8 +553,17 @@ v3i12_if_none_match(Ctx0) ->
   end.
 
 -spec v3l13_if_modified_since(context()) -> flow_result().
-v3l13_if_modified_since(Ctx) ->
-  {ok, Ctx}.
+v3l13_if_modified_since(Ctx0) ->
+  Req0 = req(Ctx0),
+  case cowboy_req:parse_header(<<"if-modified-since">>, Req0) of
+    {error, badarg} ->
+      error_response(412, Ctx0);
+    {ok, undefined, Req} ->
+      unrest_context:set(req, Req, Ctx0);
+    {ok, IfModifiedSince, Req} ->
+      {ok, Ctx} = unrest_context:set(req, Req, Ctx0),
+      if_modified_since(IfModifiedSince, Ctx)
+  end.
 
 %%_* Internal ==================================================================
 
@@ -979,6 +988,25 @@ if_none_match_check_method(Ctx0) ->
   case Method =:= <<"GET">> orelse Method =:= <<"HEAD">> of
     true -> error_response(304, Ctx);
     false -> error_response(412, Ctx)
+  end.
+
+if_modified_since(IfModifiedSince, Ctx0) ->
+  case IfModifiedSince > erlang:universaltime() of
+    true  -> {ok, Ctx0};
+    false ->
+      case resource_call(last_modified, Ctx0) of
+        not_implemented ->
+          {ok, Ctx0};
+        {_, _} = HaltOrError ->
+          error_response(HaltOrError, Ctx0);
+        {LastModified, Req, ResCtx} ->
+          {ok, Ctx1} = update_context(Req, ResCtx, Ctx0),
+          {ok, Ctx}  = unrest_context:set(last_modified, LastModified, Ctx1),
+          case LastModified > IfModifiedSince of
+            true  -> {ok, Ctx};
+            false -> error_response(304, Ctx)
+          end
+      end
   end.
 
 %%_* Defaults ==================================================================
