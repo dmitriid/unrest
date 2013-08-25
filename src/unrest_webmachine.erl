@@ -53,7 +53,6 @@
 %% Existence and redirection
 %% webmachine_non_existing_put_flow
 -export([ v3i4_v3k5_moved_permanently/1
-        , v3p3_conflict/1
         ]).
 
 %% Existence and redirection
@@ -74,6 +73,19 @@
 -export([ v3m16_delete/1
         , v3m20_delete_enacted/1
         , v3m20_delete_completed/1
+        ]).
+
+%% Put
+-export([ v3p3_v3o14_conflict/1
+        ]).
+
+%% Post
+-export([ v3n16_post/1
+        , v3n11_redirect/1
+        ]).
+
+%% Put & Post
+-export([ v3p11_new_resource/1
         ]).
 
 %% Body
@@ -496,10 +508,6 @@ v3l5_moved_temporarily(Ctx0) ->
       respond(302, Ctx)
   end.
 
--spec v3p3_conflict(context()) -> flow_result().
-v3p3_conflict(Ctx) ->
-  decision(resource_call(is_conflict, Ctx), false, 409, Ctx).
-
 -spec v3m5_is_post(context()) -> flow_result().
 v3m5_is_post(Ctx0) ->
   {Method, Ctx} = method(Ctx0),
@@ -577,6 +585,8 @@ v3l13_if_modified_since(Ctx0) ->
       if_modified_since(IfModifiedSince, Ctx)
   end.
 
+%%_* DELETE -------------------------------------------------------------------
+
 -spec v3m16_delete(context()) -> flow_result().
 v3m16_delete(Ctx0) ->
   case method(Ctx0) of
@@ -606,6 +616,35 @@ v3o18_multiple_representation(Ctx) ->
 -spec v3o18_respond(context()) -> flow_result().
 v3o18_respond(Ctx) ->
   respond(200, Ctx).
+
+%%_* PUT ----------------------------------------------------------------------
+
+-spec v3p3_v3o14_conflict(context()) -> flow_result().
+v3p3_v3o14_conflict(Ctx) ->
+  decision(resource_call(is_conflict, Ctx), false, 409, Ctx).
+
+%%_* POST ---------------------------------------------------------------------
+
+-spec v3n16_post(context()) -> flow_result().
+v3n16_post(Ctx0) ->
+  case method(Ctx0) of
+    {<<"POST">>, Ctx} ->
+      {ok, Ctx};
+    {_, Ctx} ->
+      {flow, <<"webmachine_put_flow">>, Ctx}
+  end.
+
+-spec v3n11_redirect(context()) -> flow_result().
+v3n11_redirect(Ctx) ->
+  {ok, Ctx}.
+
+%%_* PUT/POST -----------------------------------------------------------------
+
+-spec v3p11_new_resource(context()) -> flow_result().
+v3p11_new_resource(Ctx) ->
+  {ok, Ctx}.
+
+
 
 %%_* Internal ==================================================================
 

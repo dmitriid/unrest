@@ -99,17 +99,14 @@ __flows__:
   webmachine_non_existing_put_flow:
     unrest_webmachine:
       - v3i4_v3k5_moved_permanently
-      - v3p3_conflict
-      # TODO: continue to creating new resource
-      - dummy_output
+    __flow__: webmachine_put_flow
   webmachine_non_existing_previously_existed_flow:
     unrest_webmachine:
       - v3i4_v3k5_moved_permanently
       - v3l5_moved_temporarily
       - v3m5_is_post
       - v3n5_allow_post_to_missing_resource
-      # TODO: continue to creating new resource
-      - dummy_output
+    __flow__: webmachine_post_flow
   webmachine_conditional_request_flow:
     unrest_webmachine:
       - v3g8_if_match
@@ -123,10 +120,17 @@ __flows__:
       - v3m20_delete_enacted
       - v3m20_delete_completed
     __flow__: webmachine_body_flow
-  webmachine_post_flow:
-    # TODO: implement
+  webmachine_put_flow:
     unrest_webmachine:
-      - dummy_output
+      - v3p3_v3o14_conflict
+      - v3p11_new_resource
+    __flow__: webmachine_body_flow
+  webmachine_post_flow:
+    unrest_webmachine:
+      - v3n16_post
+      - v3n11_redirect
+      - v3p11_new_resource
+    __flow__: webmachine_body_flow
   webmachine_body_flow:
     unrest_webmachine:
       - v3o20_response_entity
