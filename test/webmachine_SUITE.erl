@@ -39,11 +39,11 @@ init_per_suite(Config) ->
   lhttpc:start(),
   application:stop(unrest),
   Path = filename:join([code:priv_dir(unrest), "webmachine.yml"]),
-  Blueprint = filename:join([ code:priv_dir(unrest)
-                            , ".."
-                            , "test"
-                            , "webmachine.apib"
+
+  Blueprint = filename:join([ proplists:get_value(priv_dir, Config)
+                            , "webmachine.txt"
                             ]),
+  ct:pal("~p~n", [Blueprint]),
   unrest:start(Path),
   [{blueprint, Blueprint} | Config].
 
@@ -52,12 +52,16 @@ end_per_suite(_Config) ->
 
 init_per_testcase(Testcase, Config0) ->
   TestConfig = ?MODULE:Testcase({init, Config0}),
-  lists:foldl( fun({Key, _} = New, Config) ->
-                 lists:keystore(Key, 1, Config, New)
-               end
-             , Config0
-             , TestConfig
-            ).
+  Config1 = lists:foldl( fun({Key, _} = New, Config) ->
+                           lists:keystore(Key, 1, Config, New)
+                         end
+                       , Config0 ++ defaults()
+                       , TestConfig
+                       ),
+  Blueprint = proplists:get_value(blueprint, Config1),
+  {ok, File} = file:open(Blueprint, [write]),
+  Config = [{file, File} | Config1],
+  update_blueprint(Config).
 
 end_per_testcase(_Testcase, _Config) ->
   ok.
@@ -65,7 +69,9 @@ end_per_testcase(_Testcase, _Config) ->
 %%_* Tests =====================================================================
 
 test({init, _Config}) ->
-  [{headers, [{"Content-Length", "0"}]}];
+  [ {request_headers, [{"Content-Length", "0"}]}
+  , {response_code, "204"}
+  ];
 test(Config) ->
   run(Config).
 
@@ -86,3 +92,31 @@ recall(Config) ->
      (What, Vals, Params, Callbacks) ->
     katt_callback:recall(What, Vals, Params, Callbacks)
   end.
+
+update_blueprint(Config) ->
+  File = proplists:get_value(file, Config),
+  Data0 = [ "--- Test ---"
+          , $\n
+          , $\n
+          ,  proplists:get_value(method, Config), " /", $\n
+          , [  ["> ", H, ": ", V, $\n]
+            || {H, V} <- proplists:get_value(request_headers, Config)
+            ]
+          ,"< ", proplists:get_value(response_code, Config), $\n
+          , [  ["< ", H, ": ", V, $\n]
+            || {H, V} <- proplists:get_value(response_headers, Config)
+            ]
+          ],
+  Data = list_to_binary(lists:flatten(Data0)),
+  ct:pal("~p~n", [Data]),
+  file:write(File, Data),
+  file:close(File),
+  Config.
+
+
+defaults() ->
+  [ {method, "GET"}
+  , {response_code, "200"}
+  , {request_headers, []}
+  , {response_headers, []}
+  ].
