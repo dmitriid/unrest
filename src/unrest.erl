@@ -11,12 +11,12 @@ start() ->
   start(File).
 
 start(File) ->
-  ok = application:start(crypto),
-  ok = application:start(ranch),
-  ok = application:start(cowboy),
-  ok = application:start(lager),
-  ok = application:start(yamerl),
-  ok = application:start(unrest),
+  ok = application_start(crypto),
+  ok = application_start(ranch),
+  ok = application_start(cowboy),
+  ok = application_start(lager),
+  ok = application_start(yamerl),
+  ok = application_start(unrest),
   start_cowboy(File).
 
 start_cowboy(File) ->
@@ -58,3 +58,11 @@ get_env(Key, Env) ->
         {Key, Val} -> {ok, Val};
         false      -> application:get_env(unrest, Key)
     end.
+
+
+application_start(App) ->
+  case application:start(App) of
+    ok                              -> ok;
+    {error, {already_started, App}} -> ok;
+    Other                           -> exit(Other)
+  end.
