@@ -65,7 +65,7 @@ end_per_testcase(_Testcase, _Config) ->
 %%_* Tests =====================================================================
 
 test({init, _Config}) ->
-  [];
+  [{headers, [{"Content-Length", "0"}]}];
 test(Config) ->
   run(Config).
 
@@ -75,6 +75,14 @@ test(Config) ->
 run(Config) ->
   Blueprint = proplists:get_value(blueprint, Config),
   Params = [{hostname, "localhost"}, {port, 8080}],
-  {Response, Data} = katt:run(Blueprint, Params),
-  io:format("~p~n~p~n", [Response, Data]),
-  ?assertEqual(pass, Response).
+  Result = katt:run(Blueprint, Params, [{recall, recall(Config)}]),
+  ?assertMatch({pass, _, _, _, _}, Result).
+
+
+recall(Config) ->
+  Hdrs = proplists:get_value(headers, Config, []),
+  fun(headers, _, _, _) ->
+    Hdrs;
+     (What, Vals, Params, Callbacks) ->
+    katt_callback:recall(What, Vals, Params, Callbacks)
+  end.
