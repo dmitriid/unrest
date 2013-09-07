@@ -9,3 +9,6 @@ rebar
 *.dump
 priv/logs/*
 log
+unrest.iml
+.idea
+#rebar.config#

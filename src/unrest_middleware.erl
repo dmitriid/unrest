@@ -31,7 +31,7 @@ handle_request(Options, Req, Env) ->
   run_flow(MethodOptions, Req, Env, Flows).
 
 run_flow(undefined, Req, _Env, _Flows) ->
-  {ok, Req2} = cowboy_req:reply(400, [], "Invalid request!", Req),
+  {ok, Req2} = cowboy_req:reply(501, [], "Invalid request!", Req),
   {halt, Req2};
 run_flow(Module, Req, Env0, _Flows) when is_atom(Module) ->
   Env = lists:keyreplace(handler, 1, Env0, {handler, Module}),
@@ -42,7 +42,6 @@ run_flow(Options, Req0, Env0, Flows) ->
       Env = lists:keyreplace(habdler, 1, Env0, {handler, Module}),
       {ok, Req0, Env};
     Flow when is_list(Flow) ->
-      io:format("FLOW ~p~n~n~n", [Flow]),
       Config = [E || E = {K, _} <- Options, K /= <<"__flow__">>],
       Ctx = unrest_context:new([ {req, Req0}
                                , {flows, Flows}

@@ -11,7 +11,8 @@
         , new/1
         ]).
 
--export([ get/2
+-export([ all/1
+        , get/2
         , get/3
         , multiget/2
         ]).
@@ -51,6 +52,10 @@ new() ->
 new(List) ->
   Data = orddict:from_list(List),
   #context{data = Data}.
+
+-spec all(context()) -> {ok, proplists:proplist()}.
+all(#context{data = Data}) ->
+  {ok, orddict:to_list(Data)}.
 
 -spec get(any(), context()) -> {ok, any()} | {error, not_found}.
 get(Key, #context{data = Data}) ->
