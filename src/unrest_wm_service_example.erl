@@ -51,6 +51,7 @@
 %% Conditional request
 -export([ generate_etag/2
         , last_modified/2
+        , expires/2
         ]
        ).
 %% Delete resource
@@ -59,8 +60,20 @@
         ]
        ).
 
+%% POST
+-export([ post_is_create/2
+        , create_path/2
+        , process_post/2
+        ]
+       ).
+
 %% Body
 -export([ multiple_choices/2
+        ]
+       ).
+
+%% Content-type callbacks
+-export([ to_html/2
         ]
        ).
 
@@ -175,9 +188,9 @@ content_types_provided(Req, Ctx) ->
 languages_provided(Req, Ctx) ->
   {[<<"en-us">>, <<"ru">>], Req, Ctx}.
 
--spec charsets_provided(req(), context()) -> response([binary()]).
+-spec charsets_provided(req(), context()) -> response([{binary(), fun()}]).
 charsets_provided(Req, Ctx) ->
-  {[<<"utf-8">>], Req, Ctx}.
+  {[{<<"utf-8">>, fun to_utf8/1}], Req, Ctx}.
 
 %%
 %% @doc encodings_provided/2 should return a list of encodings and their
@@ -261,6 +274,13 @@ last_modified(Req, Ctx) ->
   Yesteryear = Y - 1,
   {{{Yesteryear, M, D}, Time}, Req, Ctx}.
 
+%% @doc Return date in the format {{Year, Month, Day}, {Hour, Minute, Second}}
+-spec expires(req(), context()) -> response(tuple()).
+expires(Req, Ctx) ->
+  {{Y, M, D}, Time} = erlang:universaltime(),
+  Yesteryear = Y + 1,
+  {{{Yesteryear, M, D}, Time}, Req, Ctx}.
+
 %%_* delete resource ----------------------------------------------------------
 -spec delete_resource(req(), context()) -> response(boolean()).
 delete_resource(Req, Ctx) ->
@@ -270,10 +290,32 @@ delete_resource(Req, Ctx) ->
 delete_completed(Req, Ctx) ->
   {true, Req, Ctx}.
 
+%%_* post ----------------------------------------------------------------------
+-spec post_is_create(req(), context()) -> response(boolean()).
+post_is_create(Req, Ctx) ->
+  {false, Req, Ctx}.
+
+-spec create_path(req(), context()) -> response(binary()).
+create_path(Req, Ctx) ->
+  {true, Req, Ctx}.
+
+-spec process_post(req(), context()) -> response(boolean()).
+process_post(Req, Ctx) ->
+  {true, Req, Ctx}.
+
 %%_* body ---------------------------------------------------------------------
 -spec multiple_choices(req(), context()) -> response(boolean()).
 multiple_choices(Req, Ctx) ->
   {false, Req, Ctx}.
+
+%%_* content-type callbacks ----------------------------------------------------
+-spec to_html(req(), context()) -> response(iolist()).
+to_html(Req, Ctx) ->
+  {"<b>hello</b>", Req, Ctx}.
+
+-spec to_utf8(iolist()) -> iolist().
+to_utf8(Iolist) ->
+  Iolist.
 
 %%% Local Variables:
 %%% erlang-indent-level: 2

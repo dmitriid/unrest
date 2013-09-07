@@ -21,6 +21,7 @@
         , existence_and_redirection/1
         , conditional_requests/1
         , delete/1
+        , body/1
         ]).
 
 %%_* Includes ==================================================================
@@ -74,6 +75,9 @@ conditional_requests(Config) ->
   run(Config).
 
 delete(Config) ->
+  run(Config).
+
+body(Config) ->
   run(Config).
 
 %%_* Test definitions ==========================================================
@@ -246,7 +250,7 @@ tests(content_negotiation) ->
     , "406 on invalid charset header"
     , [ {response_code, "406"}
       , {request_headers, [{"Accept-Charset", "invalid,,accept-charset;;header..;"}]}
-      , {callbacks, [{charsets_provided, [<<"utf-8">>]}]}
+      , {callbacks, [{charsets_provided, [{<<"utf-8">>, dummy}]}]}
       ]
     }
   , { v3e5_accept_charset
@@ -260,7 +264,7 @@ tests(content_negotiation) ->
     , "406 when desired charset is not provided"
     , [ {response_code, "406"}
       , {request_headers, [{"Accept-Charset", "utf-8"}]}
-      , {callbacks, [{charsets_provided, [<<"latin1">>]}]}
+      , {callbacks, [{charsets_provided, [{<<"latin1">>, dummy}]}]}
       ]
     }
   , { v3f6_accept_encoding
@@ -286,37 +290,45 @@ tests(content_negotiation) ->
     }
   , { v3g7_variances
     , "The vary response header must exist"
-    , [ {response_code, "204"}
+    , [ {response_code, "200"}
       , {response_headers, [{"Vary", "accept-encoding, accept-charset, accept-language, accept"}]}
-      , {callbacks, [ {content_types_provided, [ {<<"some/type">>, dummy}
-                                               , {<<"another/type">>, dummy}
+      , {callbacks, [ {content_types_provided, [ {<<"some/type">>, to_html}
+                                               , {<<"another/type">>, to_html}
                                                ]
                       }
                     , {languages_provided, [<<"en">>, <<"ru">>]}
-                    , {charsets_provided, [<<"utf-8">>, <<"latin1">>]}
-                    , {encodings_provided, [ {<<"identity">>, fun(X) -> X end}
-                                           , {<<"deflate">>, fun(X) -> X end}
+                    , {charsets_provided, [ {<<"utf-8">>, fun identity/1}
+                                          , {<<"latin1">>, fun identity/1}
+                                          ]
+                      }
+                    , {encodings_provided, [ {<<"identity">>, fun identity/1}
+                                           , {<<"deflate">>, fun identity/1}
                                            ]
                       }
+                    , {to_html, <<"hello">>}
                     ]
         }
     ]
     }
   , { v3g7_variances
     , "Custom variance takes precedence"
-    , [ {response_code, "204"}
+    , [ {response_code, "200"}
       , {response_headers, [{"Vary", "custom, accept-encoding, accept-charset, accept-language, accept"}]}
-      , {callbacks, [ {content_types_provided, [ {<<"some/type">>, dummy}
-                                               , {<<"another/type">>, dummy}
+      , {callbacks, [ {content_types_provided, [ {<<"some/type">>, to_html}
+                                               , {<<"another/type">>, to_html}
                                                ]
                       }
                     , {languages_provided, [<<"en">>, <<"ru">>]}
-                    , {charsets_provided, [<<"utf-8">>, <<"latin1">>]}
-                    , {encodings_provided, [ {<<"identity">>, fun(X) -> X end}
-                                           , {<<"deflate">>, fun(X) -> X end}
+                    , {charsets_provided, [ {<<"utf-8">>, fun identity/1}
+                                          , {<<"latin1">>, fun identity/1}
+                                          ]
+                      }
+                    , {encodings_provided, [ {<<"identity">>, fun identity/1}
+                                           , {<<"deflate">>, fun identity/1}
                                            ]
                       }
                     , {variances, [<<"custom">>]}
+                    , {to_html, <<"hello">>}
                     ]
         }
     ]
@@ -640,7 +652,7 @@ tests(delete) ->
         }
       ]
     }
-  ,  { v3m20_delete_completed
+  , { v3m20_delete_completed
     , "Resource exists \n"
       "Method is DELETE \n"
       "Delete resource returns true \n"
@@ -657,7 +669,7 @@ tests(delete) ->
         }
       ]
     }
-  ,  { v3o20_response_entity
+  , { v3o20_response_entity
     , "Resource exists \n"
       "Method is DELETE \n"
       "Delete resource returns true \n"
@@ -675,7 +687,7 @@ tests(delete) ->
         }
       ]
     }
-  ,  { v3o20_response_entity
+  , { v3o20_response_entity
     , "Resource exists \n"
       "Method is DELETE \n"
       "Delete resource returns true \n"
@@ -696,7 +708,7 @@ tests(delete) ->
         }
       ]
     }
-  ,  { v3o20_response_entity
+  , { v3o20_response_entity
     , "Resource exists \n"
       "Method is DELETE \n"
       "Delete resource returns true \n"
@@ -714,6 +726,170 @@ tests(delete) ->
                     , {delete_resource, true}
                     , {delete_completed, true}
                     , {multiple_choices, true}
+                    ]
+        }
+      ]
+    }
+  ];
+tests(body) ->
+  [ { v3n16_post
+    , "Resource exists \n"
+      "Method is POST \n"
+      "Post is *not* create \n"
+      "process_post not implemented \n"
+      "Get a 500"
+    , [ {response_code, "500"}
+      , {method, "POST"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"POST">>]}
+                    , {allowed_methods, [<<"POST">>]}
+                    ]
+        }
+      ]
+    }
+  , { v3n16_post
+    , "Resource exists \n"
+      "Method is POST \n"
+      "Post is *not* create \n"
+      "process_post returns false \n"
+      "Get a 500"
+    , [ {response_code, "500"}
+      , {method, "POST"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"POST">>]}
+                    , {allowed_methods, [<<"POST">>]}
+                    , {process_post, false}
+                    ]
+        }
+      ]
+    }
+  , { v3n16_post
+    , "Resource exists \n"
+      "Method is POST \n"
+      "Post is *not* create \n"
+      "process_post returns true and sets location header \n"
+      "Get a 201 and Location header is set"
+    , [ {response_code, "201"}
+      , {method, "POST"}
+      , {response_headers, [{"Location", "/new_resource"}]}
+      , {set_headers, [{<<"Location">>, <<"/new_resource">>}]}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"POST">>]}
+                    , {allowed_methods, [<<"POST">>]}
+                    , {process_post, true}
+                    ]
+        }
+      ]
+    }
+  , { v3n16_post
+    , "Resource exists \n"
+      "Method is POST \n"
+      "Post is create \n"
+      "create_path not implemented \n"
+      "Get a 500"
+    , [ {response_code, "500"}
+      , {method, "POST"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"POST">>]}
+                    , {allowed_methods, [<<"POST">>]}
+                    , {post_is_create, true}
+                    ]
+        }
+      ]
+    }
+  , { v3n16_post
+    , "Resource exists \n"
+      "Method is POST \n"
+      "Post is create \n"
+      "create_path does not return a path \n"
+      "Get a 500"
+    , [ {response_code, "500"}
+      , {method, "POST"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"POST">>]}
+                    , {allowed_methods, [<<"POST">>]}
+                    , {post_is_create, true}
+                    , {create_path, invalid}
+                    ]
+        }
+      ]
+    }
+  , { v3p11_new_resource
+    , "Resource exists \n"
+      "Method is POST \n"
+      "Post is not create \n"
+      "create_path does returns a path \n"
+      "Get a 201 with Location header set"
+    , [ {response_code, "201"}
+      , {method, "POST"}
+      , {response_headers, [{"Location", "/new_resource"}]}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"POST">>]}
+                    , {allowed_methods, [<<"POST">>]}
+                    , {post_is_create, true}
+                    , {create_path, <<"/new_resource">>}
+                    ]
+        }
+      ]
+    }
+  , { v3p3_v3o14_conflict
+    , "Resource exists \n"
+      "Method is PUT \n"
+      "We are in conflict \n"
+      "Get a 409"
+    , [ {response_code, "409"}
+      , {method, "PUT"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"PUT">>]}
+                    , {allowed_methods, [<<"PUT">>]}
+                    , {is_conflict, true}
+                    ]
+        }
+      ]
+    }
+  , { v3p11_new_resource
+    , "Resource exists \n"
+      "Method is PUT \n"
+      "Get a 201 with Location header set"
+    , [ {response_code, "201"}
+      , {method, "PUT"}
+      , {response_headers, [{"Location", "/new_resource"}]}
+      , {set_headers, [{<<"Location">>, <<"/new_resource">>}]}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"PUT">>]}
+                    , {allowed_methods, [<<"PUT">>]}
+                    ]
+        }
+      ]
+    }
+  , { v3o18_body
+    , "Resource exists \n"
+      "Method is GET \n"
+      "Get a 200 with all headers set"
+    , [ {response_code, "200"}
+      , {request_headers, [ {"Accept-Language", "ru"}
+                          , {"Accept", "some/type, text/html"}
+                          , {"Accept-Charset", "iso-8859-5, utf-8"}
+                          , {"Accept-Encoding", "deflate, identity"}
+                          ]
+        }
+      , {response_headers, [ {"Content-Type", "text/html; charset=utf-8"}
+                           , {"Content-Encoding", "identity"}
+                           , {"Content-Language", "ru"}
+                           , {"Content-Length", "20"}
+                           , {"Expires", "Fri, 01 Jan 2100 01:01:01 GMT"}
+                           , {"Etag", "\"Etag\""}
+                           ]
+        }
+      , {response_body, "hellohellohellohello"}
+      , {callbacks, [ {resource_exists, true}
+                    , {generate_etag, "\"Etag\""}
+                    , {languages_provided, [<<"en-us">>, <<"ru">>]}
+                    , {charsets_provided, [{<<"utf-8">>, fun(X) -> [X, X] end}]}
+                    , {encodings_provided, [{<<"identity">>, fun(X) -> [X, X] end}]}
+                    , {content_types_provided, [{{<<"text">>, <<"html">>, []}, to_html}]}
+                    , {expires, {{2100, 1, 1}, {1,1,1}}}
+                    , {to_html, <<"hello">>}
                     ]
         }
       ]
@@ -814,12 +990,24 @@ respond({Type, _} = ErrorOrHalt, _) when Type =:= error
                                        ; Type =:= halt ->
   fun(_, _) -> ErrorOrHalt end;
 respond(Response, Config) ->
-  fun(ReqData, Context) ->
-    case proplists:get_value(set_body, Config) of
-      undefined -> {Response, ReqData, Context};
-      Body      -> {Response, cowboy_req:set_resp_body(Body, ReqData), Context}
-    end
+  fun(ReqData0, Context) ->
+    ReqData1 = case proplists:get_value(set_body, Config) of
+                 undefined -> ReqData0;
+                 Body      -> cowboy_req:set_resp_body(Body, ReqData0)
+               end,
+    ReqData = case proplists:get_value(set_headers, Config) of
+                undefined -> ReqData1;
+                Headers -> lists:foldl( fun({H, V}, Req) ->
+                                          cowboy_req:set_resp_header(H, V, Req)
+                                        end
+                                      , ReqData1
+                                      , Headers
+                                      )
+              end,
+    {Response, ReqData, Context}
   end.
+
+identity(X) -> X.
 
 defaults() ->
   [ {method, "GET"}

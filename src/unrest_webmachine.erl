@@ -76,12 +76,12 @@
         ]).
 
 %% Put
--export([ v3p3_v3o14_conflict/1
+-export([ v3o16_put/1
+        , v3p3_v3o14_conflict/1
         ]).
 
 %% Post
 -export([ v3n16_post/1
-        , v3n11_redirect/1
         ]).
 
 %% Put & Post
@@ -90,6 +90,7 @@
 
 %% Body
 -export([ v3o20_response_entity/1
+        , v3o18_body/1
         , v3o18_multiple_representation/1
         , v3o18_respond/1
         ]).
@@ -338,8 +339,13 @@ v3e5_accept_charset(Ctx0) ->
     {[], Req, ResCtx} ->
       {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
       respond(406, Ctx);
-    {Charsets, Req0, ResCtx} ->
-      {ok, Ctx1} = unrest_context:set(charsets_provided, Charsets, Ctx0),
+    {CharsetMap, Req0, ResCtx} ->
+      Charsets = [Charset || {Charset, _} <- CharsetMap],
+      {ok, Ctx1} = unrest_context:multiset( [ {charsets_provided, Charsets}
+                                            , {charset_map, CharsetMap}
+                                            ]
+                                          , Ctx0
+                                          ),
       case cowboy_req:parse_header(<<"accept-charset">>, Req0) of
         {error, badarg} ->
           respond(406, Ctx1);
@@ -591,7 +597,7 @@ v3m16_delete(Ctx0) ->
   case method(Ctx0) of
     {<<"DELETE">>, Ctx} ->
       {ok, Ctx};
-    {_, Ctx} ->
+    {_M, Ctx} ->
       {flow, <<"webmachine_post_flow">>, Ctx}
   end.
 
@@ -607,6 +613,14 @@ v3m20_delete_completed(Ctx) ->
 v3o20_response_entity(Ctx) ->
   decision(cowboy_req:has_resp_body(req(Ctx)), true, 204, Ctx).
 
+-spec v3o18_body(context()) -> flow_result().
+v3o18_body(Ctx0) ->
+  case method(Ctx0) of
+    {Method, Ctx} when Method =:= <<"GET">>
+                     ; Method =:= <<"HEAD">> -> provide_response_body(Ctx);
+    _ -> {ok, Ctx0}
+  end.
+
 -spec v3o18_multiple_representation(context()) -> flow_result().
 v3o18_multiple_representation(Ctx) ->
   decision(resource_call(multiple_choices, Ctx), false, 300, Ctx).
@@ -616,6 +630,14 @@ v3o18_respond(Ctx) ->
   respond(200, Ctx).
 
 %%_* PUT ----------------------------------------------------------------------
+
+-spec v3o16_put(context()) -> flow_result().
+v3o16_put(Ctx0) ->
+  case method(Ctx0) of
+    {<<"PUT">>, Ctx} -> {ok, Ctx};
+    {_, Ctx}         ->
+      {flow, <<"webmachine_body_flow">>, Ctx}
+  end.
 
 -spec v3p3_v3o14_conflict(context()) -> flow_result().
 v3p3_v3o14_conflict(Ctx) ->
@@ -627,22 +649,31 @@ v3p3_v3o14_conflict(Ctx) ->
 v3n16_post(Ctx0) ->
   case method(Ctx0) of
     {<<"POST">>, Ctx} ->
-      {ok, Ctx};
+      case resource_call(post_is_create, Ctx0) of
+        not_implemented ->
+          process_post(Ctx0);
+        {_, _} = HaltOrError ->
+          respond(HaltOrError, Ctx0);
+        {false, Req, ResCtx} ->
+          {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+          process_post(Ctx);
+        {true, Req0, ResCtx} ->
+          {ok, Ctx} = update_context(Req0, ResCtx, Ctx0),
+          create_path(Ctx)
+      end;
     {_, Ctx} ->
       {flow, <<"webmachine_put_flow">>, Ctx}
   end.
-
--spec v3n11_redirect(context()) -> flow_result().
-v3n11_redirect(Ctx) ->
-  {ok, Ctx}.
 
 %%_* PUT/POST -----------------------------------------------------------------
 
 -spec v3p11_new_resource(context()) -> flow_result().
 v3p11_new_resource(Ctx) ->
-  {ok, Ctx}.
-
-
+  decision( cowboy_req:has_resp_header(<<"Location">>, req(Ctx))
+          , false
+          , 201
+          , Ctx
+          ).
 
 %%_* Internal ==================================================================
 
@@ -651,7 +682,6 @@ resource_call(Call, Ctx) ->
   {ok, Exports} = unrest_context:get(resource_exports, Ctx),
   {ok, Req}     = unrest_context:get(req, Ctx),
   {ok, ResCtx}  = unrest_context:get(resource_context, Ctx),
-
   case lists:keyfind(Call, 1, Exports) of
     {Call, 2} ->
       Module:Call(Req, ResCtx);
@@ -1004,6 +1034,8 @@ if_match(EtagList, Ctx0) ->
   case generate_etag(Ctx0) of
     {undefined, Ctx} ->
       respond(412, Ctx);
+    {respond, _} = Respond ->
+      Respond;
     {Etag, Ctx} ->
       case lists:member(Etag, EtagList) of
         true  -> {ok, Ctx};
@@ -1022,10 +1054,12 @@ generate_etag(Ctx0) ->
           respond(HaltOrError, Ctx0);
         {Etag0, Req, ResCtx} when is_binary(Etag0)->
           [Etag] = cowboy_http:entity_tag_match(Etag0),
-          {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+          {ok, Ctx1} = update_context(Req, ResCtx, Ctx0),
+          {ok, Ctx} = unrest_context:set(etag, Etag, Ctx1),
           {Etag, Ctx};
         {Etag, Req, ResCtx} ->
-          {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+          {ok, Ctx1} = update_context(Req, ResCtx, Ctx0),
+          {ok, Ctx} = unrest_context:set(etag, Etag, Ctx1),
           {Etag, Ctx}
       end;
     {ok, Etag} ->
@@ -1055,6 +1089,8 @@ if_none_match(EtagList, Ctx0) ->
   case generate_etag(Ctx0) of
     {undefined, Ctx} ->
       respond(412, Ctx);
+    {respond, _} = Respond ->
+      Respond;
     {Etag, Ctx} ->
       case lists:member(Etag, EtagList) of
         true  -> if_none_match_check_method(Ctx);
@@ -1088,88 +1124,206 @@ if_modified_since(IfModifiedSince, Ctx0) ->
       end
   end.
 
+process_post(Ctx0) ->
+  case resource_call(process_post, Ctx0) of
+    not_implemented ->
+      respond(500, Ctx0);
+    {_, _} = HaltOrError ->
+      respond(HaltOrError, Ctx0);
+    {false, Req, ResCtx} ->
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      respond(500, Ctx);
+    {true, Req, ResCtx} ->
+      update_context(Req, ResCtx, Ctx0)
+  end.
+
+create_path(Ctx0) ->
+  case resource_call(create_path, Ctx0) of
+    not_implemented ->
+      respond(500, Ctx0);
+    {_, _} = HaltOrError ->
+      respond(HaltOrError, Ctx0);
+    {Any, Req, ResCtx} when not is_binary(Any) ->
+      {ok, Ctx} = update_context(Req, ResCtx, Ctx0),
+      respond(500, Ctx);
+    {Path, Req0, ResCtx} ->
+      {ok, Ctx1} = update_context(Req0, ResCtx, Ctx0),
+      case base_uri(Ctx1) of
+        {{_, _} = HaltOrError, Ctx} -> respond(HaltOrError, Ctx);
+        {BaseUri, Ctx} ->
+          NewPath = filename:join([BaseUri, Path]),
+          Req = cowboy_req:set_resp_header(<<"Location">>, NewPath, req(Ctx)),
+          unrest_context:set(req, Req, Ctx)
+      end
+  end.
+
+base_uri(Ctx0) ->
+  case resource_call(base_uri, Ctx0) of
+    not_implemented ->
+      {BaseUri, Req} = cowboy_req:host_url(req(Ctx0)),
+      {ok, Ctx} = unrest_context:set(req, Req, Ctx0),
+      {BaseUri, Ctx};
+    {BaseUri, ReqData, ResCtx} when is_binary(BaseUri) ->
+      {ok, Ctx} = update_context(ReqData, ResCtx, Ctx0),
+      {BaseUri, Ctx};
+    {_, ReqData, ResCtx} ->
+      {ok, Ctx} = update_context(ReqData, ResCtx, Ctx0),
+      {{halt, 500}, Ctx};
+    {_, _} = HaltOrError ->
+      {HaltOrError, Ctx0}
+  end.
+
+provide_response_body(Ctx0) ->
+  {ok, Ctx1} = expires(Ctx0),
+  Req0 = req(Ctx1),
+  {Req1, Ctx2} = case generate_etag(Ctx1) of
+                   {undefined, Ctx3} ->
+                     {Req0, Ctx3};
+                   {respond, _} ->
+                     {Req0, Ctx1};
+                   {ok, Ctx3} ->
+                     {Req0, Ctx3};
+                   {Etag, Ctx3} ->
+                     {cowboy_req:set_resp_header(<<"ETag">>, Etag, Req0), Ctx3}
+                 end,
+  Req2 = case unrest_context:get(last_modified, Ctx2, undefined) of
+           {ok, undefined} -> Req1;
+           {ok, Date} ->
+             cowboy_req:set_resp_header(<<"Last-Modified">>, Date, Req1)
+         end,
+  Req3 = case unrest_context:get(expires, Ctx2, undefined) of
+           {ok, undefined} -> Req2;
+           {ok, Expire} ->
+             cowboy_req:set_resp_header(<<"Expires">>, Expire, Req2)
+         end,
+  {ok, Ctx} = unrest_context:set(req, Req3, Ctx2),
+  provide_content_type(Ctx).
+
+expires(Ctx0) ->
+  case resource_call(expires, Ctx0) of
+    not_implemented -> {ok, Ctx0};
+    {Expires, ReqData, ResCtx} ->
+      {ok, Ctx} = update_context(ReqData, ResCtx, Ctx0),
+      ExpiresBin = cowboy_clock:rfc1123(Expires),
+      unrest_context:set(expires, ExpiresBin, Ctx)
+  end.
+
+provide_content_type(Ctx0) ->
+  {ok, {_, ContentTypeFunction}} = unrest_context:get(content_type_a, Ctx0),
+  case resource_call(ContentTypeFunction, Ctx0) of
+    not_implemented ->
+      respond(500, Ctx0);
+    {_, _} = HaltOrError ->
+      {HaltOrError, Ctx0};
+    {Body, ReqData, ResCtx} ->
+      {ok, Ctx1} = update_context(ReqData, ResCtx, Ctx0),
+      {ok, Ctx} = unrest_context:set(body, Body, Ctx1),
+      encode_body(Ctx)
+  end.
+
+encode_body(Ctx) ->
+  {ok, Body0} = unrest_context:get(body, Ctx),
+  Identity = fun(X) -> X end,
+
+  Charsetter = case unrest_context:get(charset, Ctx, undefined) of
+                 {ok, None} when None =:= no_charset
+                               ; None =:= undefined -> Identity;
+                 {ok, Charset} ->
+                   {ok, CharsetMap} = unrest_context:get(charset_map, Ctx),
+                   proplists:get_value(Charset, CharsetMap)
+               end,
+  Encoder    = case unrest_context:get(encoding, Ctx, undefined) of
+                 {ok, undefined} -> Identity;
+                 {ok, Encoding} ->
+                   {ok, EncodingsMap} = unrest_context:get(encodings_map, Ctx),
+                   proplists:get_value(Encoding, EncodingsMap)
+               end,
+  Body = Encoder(Charsetter(Body0)),
+  Req = cowboy_req:set_resp_body(Body, req(Ctx)),
+  unrest_context:set(req, Req, Ctx).
+
 %%_* Defaults ==================================================================
 
 default(ping) ->
-    pong;
+  pong;
 default(service_available) ->
-    true;
+  true;
 default(resource_exists) ->
-    true;
+  true;
 default(auth_required) ->
-    true;
+  true;
 default(is_authorized) ->
-    true;
+  true;
 default(forbidden) ->
-    false;
+  false;
 default(allow_missing_post) ->
-    false;
+  false;
 default(malformed_request) ->
-    false;
+  false;
 default(uri_too_long) ->
-    false;
+  false;
 default(known_content_type) ->
-    true;
+  true;
 default(valid_content_headers) ->
-    true;
+  true;
 default(valid_entity_length) ->
-    true;
+  true;
 default(options) ->
-    [];
+  [];
 default(allowed_methods) ->
-    [<<"GET">>, <<"HEAD">>];
+  [<<"GET">>, <<"HEAD">>];
 default(known_methods) ->
   [ <<"GET">>, <<"HEAD">>, <<"POST">>, <<"PUT">>, <<"DELETE">>, <<"TRACE">>
   , <<"CONNECT">>, <<"OPTIONS">>, <<"PATCH">>];
 default(content_types_provided) ->
   [{{<<"text">>, <<"html">>, '*'}, to_html}];
 default(content_types_accepted) ->
-    [];
+  [];
 default(delete_resource) ->
-    false;
+  false;
 default(delete_completed) ->
-    true;
+  true;
 default(post_is_create) ->
-    false;
+  false;
 default(create_path) ->
-    undefined;
+  not_implemented;
 default(base_uri) ->
-        undefined;
+  not_implemented;
 default(process_post) ->
-    false;
+  false;
 default(language_available) ->
-    true;
+  true;
 default(charsets_provided) ->
-    not_implemented; % this atom causes charset-negotation to short-circuit
-    % the default setting is needed for non-charset responses such as image/png
-    %    an example of how one might do actual negotiation
-    %    [{"iso-8859-1", fun(X) -> X end}, {"utf-8", make_utf8}];
+  not_implemented; % this atom causes charset-negotation to short-circuit
+                   % the default setting is needed for non-charset responses such as image/png
+                   %    an example of how one might do actual negotiation
+                   %    [{"iso-8859-1", fun(X) -> X end}, {"utf-8", make_utf8}];
 default(encodings_provided) ->
-    [{<<"identity">>, fun(X) -> X end}];
-    % this is handy for auto-gzip of GET-only resources:
-    %    [{"identity", fun(X) -> X end}, {"gzip", fun(X) -> zlib:gzip(X) end}];
+  [{<<"identity">>, fun(X) -> X end}];
+  % this is handy for auto-gzip of GET-only resources:
+  %    [{"identity", fun(X) -> X end}, {"gzip", fun(X) -> zlib:gzip(X) end}];
 default(variances) ->
-    [];
+  [];
 default(is_conflict) ->
-    false;
+  false;
 default(multiple_choices) ->
-    false;
+  false;
 default(previously_existed) ->
-    false;
+  false;
 default(moved_permanently) ->
-    false;
+  false;
 default(moved_temporarily) ->
-    false;
+  false;
 default(last_modified) ->
-    undefined;
+  not_implemented;
 default(expires) ->
-    undefined;
+  not_implemented;
 default(generate_etag) ->
-    undefined;
+  not_implemented;
 default(finish_request) ->
-    true;
+  true;
 default(validate_content_checksum) ->
-    not_validated;
+  not_validated;
 default(_) ->
   not_implemented.
 
