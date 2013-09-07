@@ -1,0 +1,153 @@
+"
+webmachine flow definition
+
+Based on https://raw.github.com/wiki/basho/webmachine/images/http-headers-status-v3.png
+Also see https://twitter.com/seancribbs/status/354790811973586944/photo/1
+
+How to use:
+
+
+  Copy/paste (or include, see milstone 0.3) the flow definitions below in your
+  configuration.
+
+  Provide resource_module config. param in your route.
+
+  Example:
+
+    /some/resource:
+      GET:
+        resource_module: some_resource
+        __flow__:
+          __flow__: webmachine_flow
+
+    __flows__:
+      webmachine_flow:
+      ...
+
+Given the config above, implement your resource in some_resource.erl as you
+would a regular webmachine resource. Notable differences:
+      - For every callback expecting a Req, it is a cowboy_req:req()
+      - You can return {halt, ErrorCode} or {error, ErrorTerm} from any callback
+      - ping (undocumented but required by webmachine) is not required
+      - md5 checksum for streaming bodies is not implemented for content-md5
+        headers
+      - 303 See Other in N11 is *not* implemented.
+        The response will be 201 if Location header is set
+      - Does not support streaming bodies (neither upload nor download)
+"
+---
+/:
+  GET:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
+  OPTIONS:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
+  PUT:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
+  POST:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
+  DELETE:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
+  HEAD:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
+  PATCH:
+    resource_module: unrest_wm_service_example
+    __flow__:
+      __flow__: webmachine_flow
+
+
+__flows__:
+  webmachine_flow:
+    unrest_webmachine: init
+    __flow__:
+      - webmachine_validation_auth
+      - webmachine_content_negotiation
+    unrest_webmachine: v3g7_resource_exists # from here down flows are called by code
+    unrest_webmachine: dummy_output
+  webmachine_validation_auth:
+    unrest_webmachine:
+      - ping
+      - v3b13_service_available
+      - v3b12_known_method
+      - v3b11_uri_too_long
+      - v3b10_method_allowed
+      - v3b9_content_checksum
+      - v3b9_malformed_request
+      - v3b8_authorized
+      - v3b7_forbidden
+      - v3b6_valid_content_headers
+      - v3b5_known_content_type
+      - v3b4_request_too_large
+      - v3b3_options
+  webmachine_content_negotiation:
+    unrest_webmachine:
+      - v3c3_accept_init
+      - v3c3_accept
+      - v3d4_accept_language
+      - v3e5_accept_charset
+      - v3f6_accept_encoding
+      - v3g7_variances
+  # flows below are not included in the flows above
+  # these are triggered programmatically by decisions in code
+  webmachine_non_existing_resource_flow:
+    unrest_webmachine:
+      - v3h7_if_match
+      - v3i7_is_put
+      - v3k7_previously_existed
+      - v3l7_is_post
+      - v3m7_allow_post_to_missing_resource
+      - dummy_output
+  webmachine_non_existing_put_flow:
+    unrest_webmachine:
+      - v3i4_v3k5_moved_permanently
+    __flow__: webmachine_put_flow
+  webmachine_non_existing_previously_existed_flow:
+    unrest_webmachine:
+      - v3i4_v3k5_moved_permanently
+      - v3l5_moved_temporarily
+      - v3m5_is_post
+      - v3n5_allow_post_to_missing_resource
+    __flow__: webmachine_post_flow
+  webmachine_conditional_request_flow:
+    unrest_webmachine:
+      - v3g8_if_match
+      - v3h10_if_unmodified_since
+      - v3i12_if_none_match
+      - v3l13_if_modified_since
+    __flow__: webmachine_delete_flow
+  webmachine_delete_flow:
+    unrest_webmachine:
+      - v3m16_delete
+      - v3m20_delete_enacted
+      - v3m20_delete_completed
+      - v3o20_response_entity
+    __flow__: webmachine_body_flow
+  webmachine_put_flow:
+    unrest_webmachine:
+      - v3o16_put
+      - v3p3_v3o14_conflict
+      - v3p11_new_resource
+      - v3o20_response_entity
+    __flow__: webmachine_body_flow
+  webmachine_post_flow:
+    unrest_webmachine:
+      - v3n16_post
+      - v3p11_new_resource
+      - v3o20_response_entity
+    __flow__: webmachine_body_flow
+  webmachine_body_flow:
+    unrest_webmachine:
+      - v3o18_body
+      - v3o18_multiple_representation
+      - v3o18_respond

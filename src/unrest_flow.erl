@@ -65,13 +65,20 @@ run(List) ->
 run([], Context) ->
   {ok, Context};
 run([{Module, Fun} | Rest], Context) when is_atom(Module), is_atom(Fun) ->
+  io:format("{~p, ~p}~n", [Module, Fun]),
   {ok, Ctx} = unrest_context:callstack_push({Module, Fun}, Context),
   try
     handle_result(Module:Fun(Ctx), Rest)
   catch
     Error:Reason ->
-      lager:error( "Try/catch triggered in flow. Error: ~p:~p. Callstack: ~p"
-                     , [Error, Reason, unrest_context:callstack(Context)]
+      {ok, Callstack} = unrest_context:callstack(Context),
+      Stacktrace = erlang:get_stacktrace(),
+      lager:error( "Try/catch triggered in flow when trying to call ~p:~p/1. "
+                   "Error: ~p:~p.~nCallstack: ~p.~nStacktrace ~p.~n"
+                 , [ Module, Fun
+                   , Error, Reason, Callstack
+                   , Stacktrace
+                   ]
                  ),
       {ok, Ctx1} = unrest_context:errors_push({Error, Reason}, Ctx),
       {ok, Ctx1}
@@ -82,8 +89,11 @@ run([Fun | Rest], Context) when is_function(Fun, 1) ->
     handle_result(Fun(Ctx), Rest)
   catch
     Error:Reason ->
-      lager:error( "Try/catch triggered in flow. Error: ~p:~p. Callstack: ~p"
-                     , [Error, Reason, unrest_context:callstack(Context)]
+      {ok, Callstack} = unrest_context:callstack(Context),
+      Stacktrace = erlang:get_stacktrace(),
+      lager:error( "Try/catch triggered in flow when calling a fun. "
+                   "Error: ~p:~p.~nCallstack: ~p.~nStacktrace ~p~n"
+                 , [Error, Reason, Callstack, Stacktrace]
                  ),
       {ok, Ctx1} = unrest_context:errors_push({Error, Reason}, Ctx),
       {ok, Ctx1}
