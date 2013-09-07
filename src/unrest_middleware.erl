@@ -39,7 +39,7 @@ run_flow(Module, Req, Env0, _Flows) when is_atom(Module) ->
 run_flow(Options, Req0, Env0, Flows) ->
   case proplists:get_value(<<"__flow__">>, Options) of
     Module when is_atom(Module) ->
-      Env = lists:keyreplace(habdler, 1, Env0, {handler, Module}),
+      Env = lists:keyreplace(handler, 1, Env0, {handler, Module}),
       {ok, Req0, Env};
     Flow when is_list(Flow) ->
       Config = [E || E = {K, _} <- Options, K /= <<"__flow__">>],
