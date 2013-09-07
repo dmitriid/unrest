@@ -15,7 +15,11 @@
         ]).
 
 %%_* Tests ---------------------------------------------------------------------
--export([ test/1 ]).
+-export([ validation_and_auth/1
+        , content_negotiation/1
+        , existence_and_redirection/1
+        , conditional_requests/1
+        ]).
 
 %%_* Includes ==================================================================
 -include_lib("eunit/include/eunit.hrl").
@@ -45,8 +49,8 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
   application:stop(unrest).
 
-init_per_testcase(_, Config) ->
-  Tests = tests(),
+init_per_testcase(Testcase, Config) ->
+  Tests = tests(Testcase),
   TestConfigs = lists:foldl(fun update_test_config/2, [], Tests),
   [{tests, lists:reverse(TestConfigs)} | Config].
 
@@ -55,12 +59,21 @@ end_per_testcase(_Testcase, _Config) ->
 
 %%_* Tests =====================================================================
 
-test(Config) ->
+validation_and_auth(Config) ->
+  run(Config).
+
+content_negotiation(Config) ->
+  run(Config).
+
+existence_and_redirection(Config) ->
+  run(Config).
+
+conditional_requests(Config) ->
   run(Config).
 
 %%_* Test definitions ==========================================================
 
-tests() ->
+tests(validation_and_auth) ->
   [ { ping
     , "503 for response other than pong"
     , [ {response_code, "503"}
@@ -181,7 +194,9 @@ tests() ->
         }
       ]
     }
-  , { v3c3_accept
+  ];
+tests(content_negotiation) ->
+  [ { v3c3_accept
     , "400 on wrong accept header"
     , [ {response_code, "400"}
       , {request_headers, [{"Accept", "invalid,,accept;;header..;"}]}
@@ -301,7 +316,9 @@ tests() ->
         }
     ]
     }
-  , { v3h7_if_match
+  ];
+tests(existence_and_redirection) ->
+  [ { v3h7_if_match
     , "Resource doesn't exist \n"
       "If-Match header exists \n"
       "Get a 412"
@@ -454,7 +471,155 @@ tests() ->
         }
       ]
     }
+  ];
+tests(conditional_requests) ->
+  [ { v3g8_if_match
+    , "Resource exists \n"
+      "If-Match header contains an invalid etag \n"
+      "Get a 412"
+    , [ {response_code, "412"}
+      , {request_headers, [{"If-Match", "\"gate\""}]}
+      , {callbacks, [ {resource_exists, true}
+                    , {generate_etag, <<"\"etag\"">>}
+                    ]
+        }
+      ]
+    }
+  , { v3h10_if_unmodified_since
+    , "Resource exists \n"
+      "If-Unmodified-Since is invalid \n"
+      "Get a 412"
+    , [ {response_code, "412"}
+      , {request_headers, [{"If-Unmodified-Since", "\"invalid\""}]}
+      , {callbacks, [ {resource_exists, true}
+                    ]
+        }
+      ]
+    }
+  , { v3h10_if_unmodified_since
+    , "Resource exists \n"
+      "If-Unmodified-Since is before the resource was modified \n"
+      "Get a 412"
+    , [ {response_code, "412"}
+      , {request_headers, [{"If-Unmodified-Since", "Tue, 11 Dec 2010 10:10:24 GMT"}]}
+      , {callbacks, [ {resource_exists, true}
+                    , {last_modified, {{2013, 5, 5}, {1, 1, 1}}}
+                    ]
+        }
+      ]
+    }
+  , { v3i12_if_none_match
+    , "Resource exists \n"
+      "If-None-Match is * \n"
+      "Method is GET \n"
+      "Get a 304"
+    , [ {response_code, "304"}
+      , {request_headers, [{"If-None-Match", "*"}]}
+      , {callbacks, [ {resource_exists, true}
+                    ]
+        }
+      ]
+    }
+  , { v3i12_if_none_match
+    , "Resource exists \n"
+      "If-None-Match is * \n"
+      "Method is HEAD \n"
+      "Get a 304"
+    , [ {response_code, "304"}
+      , {request_headers, [{"If-None-Match", "*"}]}
+      , {method, "HEAD"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"HEAD">>]}
+                    , {allowed_methods, [<<"HEAD">>]}
+                    ]
+        }
+      ]
+    }
+  , { v3i12_if_none_match
+    , "Resource exists \n"
+      "If-None-Match is * \n"
+      "Method is *not* HEAD or GET \n"
+      "Get a 412"
+    , [ {response_code, "412"}
+      , {request_headers, [{"If-None-Match", "*"}]}
+      , {method, "POST"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"POST">>]}
+                    , {allowed_methods, [<<"POST">>]}
+                    ]
+        }
+      ]
+    }
+  , { v3i12_if_none_match
+    , "Resource exists \n"
+      "If-None-Match header contains matching etag \n"
+      "Method is GET \n"
+      "Get a 304"
+    , [ {response_code, "304"}
+      , {request_headers, [{"If-None-Match", "\"etag\""}]}
+      , {callbacks, [ {resource_exists, true}
+                    , {generate_etag, <<"\"etag\"">>}
+                    ]
+        }
+      ]
+    }
+  , { v3i12_if_none_match
+    , "Resource exists \n"
+      "If-None-Match header contains matching etag \n"
+      "Method is HEAD \n"
+      "Get a 304"
+    , [ {response_code, "304"}
+      , {request_headers, [{"If-None-Match", "\"etag\""}]}
+      , {method, "HEAD"}
+      , {callbacks, [ {resource_exists, true}
+                    , {generate_etag, <<"\"etag\"">>}
+                    , {known_methods, [<<"HEAD">>]}
+                    , {allowed_methods, [<<"HEAD">>]}
+                    ]
+        }
+      ]
+    }
+  , { v3i12_if_none_match
+    , "Resource exists \n"
+      "If-None-Match header contains matching etag \n"
+      "Method is *not* HEAD or GET \n"
+      "Get a 412"
+    , [ {response_code, "412"}
+      , {request_headers, [{"If-None-Match", "\"etag\""}]}
+      , {method, "POST"}
+      , {callbacks, [ {resource_exists, true}
+                    , {generate_etag, <<"\"etag\"">>}
+                    , {known_methods, [<<"POST">>]}
+                    , {allowed_methods, [<<"POST">>]}
+                    ]
+        }
+      ]
+    }
+  , { v3l13_if_modified_since
+    , "Resource exists \n"
+      "If-Modified-Since is invalid \n"
+      "Get a 412"
+    , [ {response_code, "412"}
+      , {request_headers, [{"If-Modified-Since", "\"invalid\""}]}
+      , {callbacks, [ {resource_exists, true}
+                    ]
+        }
+      ]
+    }
+  , { v3l13_if_modified_since
+    , "Resource exists \n"
+      "If-Modified-Since is after the resource was modified \n"
+      "Get a 304"
+    , [ {response_code, "304"}
+      , {request_headers, [{"If-Modified-Since", "Tue, 11 Dec 2010 10:10:24 GMT"}]}
+      , {callbacks, [ {resource_exists, true}
+                    , {last_modified, {{2009, 5, 5}, {1, 1, 1}}}
+                    ]
+        }
+      ]
+    }
   ].
+
 
 %%_* Utility functions =========================================================
 
