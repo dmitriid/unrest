@@ -74,7 +74,6 @@ __flows__:
       - webmachine_validation_auth
       - webmachine_content_negotiation
     unrest_webmachine: v3g7_resource_exists # from here down flows are called by code
-    unrest_webmachine: dummy_output
   webmachine_validation_auth:
     unrest_webmachine:
       - ping
@@ -107,7 +106,6 @@ __flows__:
       - v3k7_previously_existed
       - v3l7_is_post
       - v3m7_allow_post_to_missing_resource
-      - dummy_output
   webmachine_non_existing_put_flow:
     unrest_webmachine:
       - v3i4_v3k5_moved_permanently
