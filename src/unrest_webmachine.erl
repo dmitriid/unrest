@@ -95,11 +95,6 @@
         , v3o18_respond/1
         ]).
 
-%% Dummy output
-%% TODO: remove once all the flows are implemented
--export([ dummy_output/1
-        ]).
-
 %%_* Types =====================================================================
 
 -type context() :: unrest_context:context().
@@ -111,14 +106,6 @@
 -export_type([response/1]).
 
 %%_* API =======================================================================
-
-%% TODO: remove once all the flows are implemented
--spec dummy_output(context()) -> flow_result().
-dummy_output(Ctx) ->
-  Trace = io_lib:format("~p", [unrest_context:callstack(Ctx)]),
-  {ok, Req0} = unrest_context:get(req, Ctx),
-  {ok, Req} = cowboy_req:reply(200, [], Trace, Req0),
-  {respond, Req}.
 
 -spec init(context()) -> flow_result().
 init(Ctx0) ->
@@ -477,7 +464,6 @@ v3l7_is_post(Ctx0) ->
   {Method, Ctx} = method(Ctx0),
   case Method of
     <<"POST">> ->
-      %% TODO: redirect to non_existing_post_flow
       {ok, Ctx};
     _ ->
       respond(404, Ctx)
