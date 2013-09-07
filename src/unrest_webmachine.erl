@@ -605,7 +605,6 @@ v3m20_delete_completed(Ctx) ->
 
 -spec v3o20_response_entity(context()) -> flow_result().
 v3o20_response_entity(Ctx) ->
-  io:format("AAA ~p~n", [cowboy_req:has_resp_body(req(Ctx))]),
   decision(cowboy_req:has_resp_body(req(Ctx)), true, 204, Ctx).
 
 -spec v3o18_multiple_representation(context()) -> flow_result().

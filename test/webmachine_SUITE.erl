@@ -1,5 +1,6 @@
 %%%=============================================================================
 %%% @doc Tests for the webmachine flow
+%%%      See see https://twitter.com/seancribbs/status/354790811973586944/photo/1
 %%%
 %%% @author Dmitrii Dimandt <dmitrii@dmitriid.com>
 %%%=============================================================================
@@ -19,6 +20,7 @@
         , content_negotiation/1
         , existence_and_redirection/1
         , conditional_requests/1
+        , delete/1
         ]).
 
 %%_* Includes ==================================================================
@@ -69,6 +71,9 @@ existence_and_redirection(Config) ->
   run(Config).
 
 conditional_requests(Config) ->
+  run(Config).
+
+delete(Config) ->
   run(Config).
 
 %%_* Test definitions ==========================================================
@@ -618,6 +623,101 @@ tests(conditional_requests) ->
         }
       ]
     }
+  ];
+tests(delete) ->
+  [ { v3m20_delete_enacted
+    , "Resource exists \n"
+      "Method is DELETE \n"
+      "Delete resource returns false \n"
+      "Get a 500"
+    , [ {response_code, "500"}
+      , {method, "DELETE"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"DELETE">>]}
+                    , {allowed_methods, [<<"DELETE">>]}
+                    , {delete_resource, false}
+                    ]
+        }
+      ]
+    }
+  ,  { v3m20_delete_completed
+    , "Resource exists \n"
+      "Method is DELETE \n"
+      "Delete resource returns true \n"
+      "Delete is not completed \n"
+      "Get a 202"
+    , [ {response_code, "202"}
+      , {method, "DELETE"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"DELETE">>]}
+                    , {allowed_methods, [<<"DELETE">>]}
+                    , {delete_resource, true}
+                    , {delete_completed, false}
+                    ]
+        }
+      ]
+    }
+  ,  { v3o20_response_entity
+    , "Resource exists \n"
+      "Method is DELETE \n"
+      "Delete resource returns true \n"
+      "Delete is completed \n"
+      "There is no body \n"
+      "Get a 204"
+    , [ {response_code, "204"}
+      , {method, "DELETE"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"DELETE">>]}
+                    , {allowed_methods, [<<"DELETE">>]}
+                    , {delete_resource, true}
+                    , {delete_completed, true}
+                    ]
+        }
+      ]
+    }
+  ,  { v3o20_response_entity
+    , "Resource exists \n"
+      "Method is DELETE \n"
+      "Delete resource returns true \n"
+      "Delete is completed \n"
+      "There is a body \n"
+      "No multiple representations \n"
+      "Get a 200"
+    , [ {response_code, "200"}
+      , {method, "DELETE"}
+      , {response_body, "deleted"}
+      , {set_body, "deleted"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"DELETE">>]}
+                    , {allowed_methods, [<<"DELETE">>]}
+                    , {delete_resource, true}
+                    , {delete_completed, true}
+                    ]
+        }
+      ]
+    }
+  ,  { v3o20_response_entity
+    , "Resource exists \n"
+      "Method is DELETE \n"
+      "Delete resource returns true \n"
+      "Delete is completed \n"
+      "There is a body \n"
+      "Multiple representations \n"
+      "Get a 300"
+    , [ {response_code, "300"}
+      , {method, "DELETE"}
+      , {response_body, "deleted"}
+      , {set_body, "deleted"}
+      , {callbacks, [ {resource_exists, true}
+                    , {known_methods, [<<"DELETE">>]}
+                    , {allowed_methods, [<<"DELETE">>]}
+                    , {delete_resource, true}
+                    , {delete_completed, true}
+                    , {multiple_choices, true}
+                    ]
+        }
+      ]
+    }
   ].
 
 
@@ -666,6 +766,10 @@ update_blueprint(Blueprint, Test, Description, Config) ->
           , [  ["< ", H, ": ", V, $\n]
             || {H, V} <- proplists:get_value(response_headers, Config)
             ]
+          , case proplists:get_value(response_body, Config, "") of
+              "" -> "";
+              Body -> [Body, $\n]
+            end
           ],
   Data = list_to_binary(lists:flatten(Data0)),
   ct:pal("~s~n", [Data]),
@@ -689,7 +793,7 @@ update_test_config({Test, Description, TestConfig}, Acc) ->
 mock_webmachine_resource(Config) ->
   meck:new(unrest_wm_service_example),
   Callbacks = proplists:get_value(callbacks, Config),
-  [  meck:expect(unrest_wm_service_example, Callback, 2, respond(Response))
+  [  meck:expect(unrest_wm_service_example, Callback, 2, respond(Response, Config))
   || {Callback, Response} <- Callbacks
   ],
   meck:expect(unrest_wm_service_example, init, 1, {ok, []}).
@@ -706,10 +810,16 @@ validate_webmachine_calls(Config) ->
   || {Callback, _} <- Callbacks
   ].
 
-respond({Type, _} = ErrorOrHalt) when Type =:= error; Type =:= halt ->
+respond({Type, _} = ErrorOrHalt, _) when Type =:= error
+                                       ; Type =:= halt ->
   fun(_, _) -> ErrorOrHalt end;
-respond(Response) ->
-  fun(ReqData, Context) -> {Response, ReqData, Context} end.
+respond(Response, Config) ->
+  fun(ReqData, Context) ->
+    case proplists:get_value(set_body, Config) of
+      undefined -> {Response, ReqData, Context};
+      Body      -> {Response, cowboy_req:set_resp_body(Body, ReqData), Context}
+    end
+  end.
 
 defaults() ->
   [ {method, "GET"}
