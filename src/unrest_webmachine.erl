@@ -390,10 +390,10 @@ v3f6_accept_encoding(Ctx0) ->
 
 -spec v3g7_variances(context()) -> flow_result().
 v3g7_variances(Ctx0) ->
-  {ok, CTP} = unrest_context:get(content_types_provided, Ctx0),
-  {ok, LP} = unrest_context:get(languages_provided, Ctx0),
-  {ok, CP} = unrest_context:get(charsets_provided, Ctx0),
-  {ok, EP} = unrest_context:get(encodings_provided, Ctx0),
+  {ok, CTP} = unrest_context:get(content_types_provided, Ctx0, []),
+  {ok, LP}  = unrest_context:get(languages_provided,     Ctx0, []),
+  {ok, CP}  = unrest_context:get(charsets_provided,      Ctx0, []),
+  {ok, EP}  = unrest_context:get(encodings_provided,     Ctx0, []),
   Variances = case CTP of
                 [] -> [];
                 [_] -> [];
@@ -414,7 +414,6 @@ v3g7_variances(Ctx0) ->
                  [_] -> Variances3;
                  [_|_] -> [<<"accept-encoding">>|Variances3]
                end,
-
   case resource_call(variances, Ctx0) of
     not_implemented ->
       variances(Variances4, Ctx0);
@@ -730,7 +729,7 @@ header(Header, Ctx0) ->
 
 %% TODO: compute md5 on a streaming body
 compute_body_md5(Ctx0) ->
-  {Body, Req} = cowboy_req:body(req(Ctx0)),
+  {ok, Body, Req} = cowboy_req:body(req(Ctx0)),
   {ok, Ctx} = unrest_context:set(req, Req, Ctx0),
   {crypto:hash(md5, Body), Ctx}.
 

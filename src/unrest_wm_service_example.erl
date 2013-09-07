@@ -114,7 +114,7 @@ validate_content_checksum(Req, Ctx) ->
 malformed_request(Req, Ctx) ->
   {false, Req, Ctx}.
 
--spec is_authorized(req(), context()) -> response(boolean()).
+-spec is_authorized(req(), context()) -> response(true | binary()).
 is_authorized(Req, Ctx) ->
   {true, Req, Ctx}.
 
