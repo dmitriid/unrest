@@ -33,6 +33,7 @@ would a regular webmachine resource. Notable differences:
         headers
       - 303 See Other in N11 is *not* implemented.
         The response will be 201 if Location header is set
+      - Does not support streaming bodies (neither upload nor download)
 "
 ---
 /:

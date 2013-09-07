@@ -1,11 +1,13 @@
-# Status and whatnot
+# Latest
 
-**Status: beta. Most of the functionality is in place,
-more tests needed** [![Build Status](https://travis-ci.org/dmitriid/unrest.png)](https://travis-ci.org/dmitriid/unrest)
+* **Status: beta.** Most of the functionality is in place,
+more tests needed [![Build Status](https://travis-ci.org/dmitriid/unrest.png)](https://travis-ci.org/dmitriid/unrest)
 
-**[Milestone 0.1](https://github.com/dmitriid/unrest/issues/milestones?page=1&sort=completeness&state=closed) reached. Available [here](https://github.com/dmitriid/unrest/releases/tag/0.1)**
+* **[Milestone 0.1](https://github.com/dmitriid/unrest/issues/milestones?page=1&sort=completeness&state=closed) reached. Available [here](https://github.com/dmitriid/unrest/releases/tag/0.1)**
 
-**Note**: master is kept stable (though might not point to a release). If you want latest
+* Webmachine flow for [Milestone 0.2](https://github.com/dmitriid/unrest/issues/milestones?page=1&sort=completeness&state=open) is completed. Consult [``priv/webmachine.yml``](https://github.com/dmitriid/unrest/blob/master/priv/webmachine.yml)
+
+* **Note**: master is kept stable (though might not point to a release). If you want latest
 and greatest, grab the [in-progress branch](https://github.com/dmitriid/unrest/tree/in-progress)
 
 
@@ -23,6 +25,9 @@ Don't fret, _unrest_ is here to rescue you.
 _unrest_ allows you to define your own execution flows, tailored to your needs.
 If you're smart or lucky enough, you'll be able to control and change the behaviour
 of your entire application just by moving lines around in a config file.
+
+- use [``priv/config.yml``](https://github.com/dmitriid/unrest/blob/master/priv/config.yml) as a starting point for your own configs
+- [``priv/webmachine.yml``](https://github.com/dmitriid/unrest/blob/master/priv/webmachine.yml) provides a **drop-in replacement for webmachine**. Consult the file for more details
 
 # Gimme quickstart
 
