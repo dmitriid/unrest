@@ -46,7 +46,7 @@ init_per_suite(Config) ->
   lhttpc:start(),
   application:stop(unrest),
   Path = filename:join([code:priv_dir(unrest), "webmachine.yml"]),
-  unrest:start(Path),
+  ct:pal("~p~n", [unrest:start(Path)]),
   Config.
 
 end_per_suite(_Config) ->
