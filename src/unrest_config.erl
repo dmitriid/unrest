@@ -5,10 +5,12 @@
 %%%=============================================================================
 -module(unrest_config).
 -compile([{parse_transform, lager_transform}]).
+-compile(export_all).
 
 %%_* Exports ===================================================================
 -export([ get_dispatch/0
         , get_dispatch/1
+        , get_dispatch/2
         ]).
 
 %%_* Includes ==================================================================
@@ -21,17 +23,30 @@ get_dispatch() ->
   File = filename:join([code:priv_dir(unrest), "config.yml"]),
   get_dispatch(File).
 
--spec get_dispatch(string()) -> unrest_flow:flow().
-get_dispatch(File) ->
-  Config = get_config(File),
-  DispatchList = get_dispatches(Config),
-  [
-   %% {HostMatch, list({PathMatch, Handler, Opts})}
-   {'_', DispatchList}
-  ].
+-spec get_dispatch( HostsOrFiles :: [{string(), file_or_files()}]
+                                  | file_or_files()
+                  ) -> list().
+-type file_or_files() :: string() | [string()].
+
+get_dispatch([{_, _} | _] = HostFiles) ->
+  lists:flatten([  get_dispatch(Host, FileOrFiles)
+                || {Host, FileOrFiles} <- HostFiles
+                ]
+               );
+get_dispatch(FileOrFiles) ->
+  get_dispatch('_', FileOrFiles).
+
+-spec get_dispatch(string() | '_', string() | [string()]) -> unrest_flow:flow().
+get_dispatch(Host, FileOrFiles) ->
+  [{Host, get_dispatches(get_config(FileOrFiles))}].
 
 %%_* Internal ==================================================================
--spec get_config(string()) -> list().
+-spec get_config(string() | [string()]) -> list().
+get_config([F|_] = Files) when is_list(F)->
+  Results = [  get_configuration(yamerl_constr:file(File, [{str_node_as_binary, true}]))
+            || File <- Files
+            ],
+  merge_results(Results);
 get_config(File) ->
   Result = yamerl_constr:file(File, [{str_node_as_binary, true}]),
   get_configuration(Result).
@@ -167,6 +182,23 @@ handle_option({<<"__flow__">>, Flow0}, ExpandedFlows) ->
 handle_option(O, _) ->
   O.
 
+
+%%
+%% @doc Given a list of parsed results from different files, merge them
+%%      This means:
+%%        - flows are appended to a single __flow__
+%%        - other keys are just appended
+%%
+-spec merge_results([proplists:proplist()]) -> proplists:proplist().
+merge_results(Results) ->
+  {Paths, Flows} = lists:foldl(fun merge_results/2, {[], []}, Results),
+  [{<<"__flows__">>, lists:flatten(Flows)} | lists:flatten(Paths)].
+
+merge_results(Result, {Paths, Flows}) ->
+  ResultPaths = [Path || {Key, _} = Path <- Result, Key =/= <<"__flows__">>],
+  ResultFlows = proplists:get_value(<<"__flows__">>, Result, []),
+  {[ResultPaths | Paths], [ResultFlows | Flows]}.
+
 %%_* Unit tests ================================================================
 -ifdef(EUNIT).
 
@@ -274,6 +306,25 @@ get_configuration_test() ->
   Result2 = get_configuration([[mapping]]),
   ?assertEqual([mapping], Result2).
 
+merge_result_test() ->
+  Result1 = [ {<<"/">>, [{a, b}]}
+            , {<<"__flows__">>, [{<<"flow1">>, [{aa, bb}]}]
+              }
+            ],
+  Result2 = [ {<<"/b">>, [{c, d}]}
+            , {<<"__flows__">>, [{<<"flow2">>, [{cc, dd}]}]
+              }
+            ],
+  Result = merge_results([Result1, Result2]),
+  ?assertEqual( [ {<<"__flows__">>, [ {<<"flow2">>, [{cc, dd}]}
+                                    , {<<"flow1">>, [{aa, bb}]}
+                                    ]
+                  }
+                , {<<"/b">>, [{c, d}]}
+                , {<<"/">>, [{a, b}]}
+                ]
+              , Result
+              ).
 -endif. %% EUNIT
 
 %%% Local Variables:
