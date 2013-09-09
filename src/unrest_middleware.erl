@@ -27,11 +27,14 @@ handle_request(Options, Req, Env) ->
   Config = proplists:get_value(config, Options),
   Flows  = proplists:get_value(flows, Options),
   {Method, _} = cowboy_req:method(Req),
-  MethodOptions = proplists:get_value(Method, Config),
+  MethodOptions =  case proplists:get_value(Method, Config) of
+                     undefined -> proplists:get_value(<<"_">>, Config);
+                     MOptions   -> MOptions
+                   end,
   run_flow(MethodOptions, Req, Env, Flows).
 
 run_flow(undefined, Req, _Env, _Flows) ->
-  {ok, Req2} = cowboy_req:reply(501, [], "Invalid request!", Req),
+  {ok, Req2} = cowboy_req:reply(501, [], "Not implemented!", Req),
   {halt, Req2};
 run_flow(Module, Req, Env0, _Flows) when is_atom(Module) ->
   Env = lists:keyreplace(handler, 1, Env0, {handler, Module}),

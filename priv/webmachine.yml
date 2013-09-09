@@ -37,31 +37,7 @@ would a regular webmachine resource. Notable differences:
 "
 ---
 /:
-  GET:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  OPTIONS:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  PUT:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  POST:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  DELETE:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  HEAD:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  PATCH:
+  _:
     resource_module: unrest_wm_service_example
     __flow__:
       __flow__: webmachine_flow

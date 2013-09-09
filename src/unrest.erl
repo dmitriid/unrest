@@ -7,7 +7,7 @@
 %% API ------------------------------------------------------------------------
 
 start() ->
-  File = filename:join([code:priv_dir(unrest), "webmachine.yml"]),
+  File = filename:join([code:priv_dir(unrest), "config.yml"]),
   start(File).
 
 start(File) ->
