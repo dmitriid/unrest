@@ -3,7 +3,6 @@ unrest configuration file
 /:
   GET:
     Content-Type: application/vnd.dmitriid.example.mediatype-v1+json
-    Accept:
     __flow__:
       unrest_service: post
       unrest_service: get
@@ -14,6 +13,10 @@ unrest configuration file
       __flow__: PATCH_flow
       unrest_service:
         - output
+  ## You can also use _ as a catch all for all/all other methods
+  _:
+    __flow__:
+      unrest_service: output
 
 
 __flows__:

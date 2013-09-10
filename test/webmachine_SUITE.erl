@@ -44,7 +44,7 @@ all() ->
 init_per_suite(Config) ->
   ssl:start(),
   lhttpc:start(),
-  application:stop(unrest),
+  unrest:stop(),
   Path = filename:join([code:priv_dir(unrest), "webmachine.yml"]),
   unrest:start(Path),
   Config.

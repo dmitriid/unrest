@@ -16,7 +16,7 @@ How to use:
 
     /some/resource:
       GET:
-        resource_module: some_resource
+        resource: some_resource
         __flow__:
           __flow__: webmachine_flow
 
@@ -34,35 +34,39 @@ would a regular webmachine resource. Notable differences:
       - 303 See Other in N11 is *not* implemented.
         The response will be 201 if Location header is set
       - Does not support streaming bodies (neither upload nor download)
+
+NOTE:
+    You can provide a list of resource modules for your resource. This is useful
+    if you want one module to provide very generic callbacks and other modules
+    to provide something very specific.
+
+  Example:
+    Let's assume you have the following modules:
+      - generic_resource provides all webmachine callbacks
+      - less_generic_resource overrides some of those callbacks with its own
+        responses
+      - specifific_resource only overrides a couple of responses
+      - very_specific_resource only overrides one callback, let's say to_html
+    Then you config would be:
+
+    /some/resource:
+      GET:
+        resource:
+          - generic_resource
+          - less_generic_resource
+          - specific_resource
+          - very_specific_resource
+        __flow__:
+          __flow__: webmachine_flow
+
+    __flows__:
+      webmachine_flow:
+      ...
 "
 ---
 /:
-  GET:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  OPTIONS:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  PUT:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  POST:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  DELETE:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  HEAD:
-    resource_module: unrest_wm_service_example
-    __flow__:
-      __flow__: webmachine_flow
-  PATCH:
-    resource_module: unrest_wm_service_example
+  _:
+    resource: unrest_wm_service_example
     __flow__:
       __flow__: webmachine_flow
 

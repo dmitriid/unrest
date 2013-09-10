@@ -2,12 +2,13 @@
 
 -export([ start/0
         , start/1
+        , stop/0
         ]).
 
 %% API ------------------------------------------------------------------------
 
 start() ->
-  File = filename:join([code:priv_dir(unrest), "webmachine.yml"]),
+  File = filename:join([code:priv_dir(unrest), "config.yml"]),
   start(File).
 
 start(File) ->
@@ -52,6 +53,10 @@ start_cowboy(File) ->
                        }
                      ]
                    ).
+
+stop() ->
+  cowboy:stop_listener(unrest_http_listener).
+
 
 get_env(Key, Env) ->
     case lists:keyfind(Key, 1, Env) of
