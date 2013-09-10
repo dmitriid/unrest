@@ -3,6 +3,7 @@
 -export([ start/0
         , start/1
         , stop/0
+        , update_config/1
         ]).
 
 %% API ------------------------------------------------------------------------
@@ -11,33 +12,23 @@ start() ->
   File = filename:join([code:priv_dir(unrest), "config.yml"]),
   start(File).
 
-start(File) ->
+start(Configs) ->
   ok = application_start(crypto),
   ok = application_start(ranch),
   ok = application_start(cowboy),
   ok = application_start(lager),
   ok = application_start(yamerl),
   ok = application_start(unrest),
-  start_cowboy(File).
+  update_config(Configs).
 
-start_cowboy(File) ->
-  %% Dispatch = [ {'_'
-  %%              , [ {"/", index_handler, []}
-  %%                , {"/:test", index_handler, []}
-  %%                , {"/internal/[...]", unrest_internal, []}
-  %%                  %% Static handler
-  %%                , { ["/static/[...]"]
-  %%                    , cowboy_static
-  %%                    , [ {directory, {priv_dir, unrest, [<<"static">>]}}
-  %%                        , {mimetypes, {fun mimetypes:path_to_mimes/2, default}}
-  %%                      ]
-  %%                  }
-  %%                ]
-  %%              }
-  %%            ],
-  Dispatch = unrest_config:get_dispatch(File),
+update_config(Configs) ->
+  stop(),
+  Dispatch = unrest_config:get_dispatch(Configs),
   CompiledDispatch = cowboy_router:compile(Dispatch),
+  start_cowboy(CompiledDispatch).
 
+
+start_cowboy(CompiledDispatch) ->
   Env = [],
   {ok, Acceptors}  = get_env(acceptors, Env),
   {ok, Port}       = get_env(port, Env),
