@@ -112,16 +112,16 @@ init(Ctx0) ->
   {ok, Params0} = unrest_context:all(Ctx0),
   Params1 = lists:keydelete(flows, 1, Params0),
   Params2 = lists:keydelete(req, 1, Params1),
-  Params  = lists:keydelete(<<"resource_module">>, 1, Params2),
+  Params  = lists:keydelete(<<"resource">>, 1, Params2),
 
-  {ok, ModuleName} = unrest_context:get(<<"resource_module">>, Ctx0),
-  Module  = unrest_util:binary_to_atom(ModuleName),
-  Exports = Module:module_info(exports),
-  {ok, ResourceCtx} = Module:init(Params),
+  {ok, Resources} = unrest_context:get(<<"resource">>, Ctx0),
+  Exports = get_exports(Resources),
+  Init = proplists:get_value({init, 1}, Exports),
+  {ok, ResourceCtx} = Init(Params),
 
   unrest_context:multiset( [ {resource_context, ResourceCtx}
                            , {resource_exports, Exports}
-                           , {resource_module, Module}
+                           , {resource, Resources}
                            ]
                          , Ctx0).
 
@@ -664,13 +664,12 @@ v3p11_new_resource(Ctx) ->
 %%_* Internal ==================================================================
 
 resource_call(Call, Ctx) ->
-  {ok, Module}  = unrest_context:get(resource_module, Ctx),
   {ok, Exports} = unrest_context:get(resource_exports, Ctx),
   {ok, Req}     = unrest_context:get(req, Ctx),
   {ok, ResCtx}  = unrest_context:get(resource_context, Ctx),
-  case lists:keyfind(Call, 1, Exports) of
-    {Call, 2} ->
-      Module:Call(Req, ResCtx);
+  case lists:keyfind({Call, 2}, 1, Exports) of
+    {_, Fun} ->
+      Fun(Req, ResCtx);
     false     ->
       case default(Call) of
         not_implemented -> not_implemented;
@@ -705,7 +704,7 @@ respond({error, Reason}, Ctx) ->
 respond({halt, Code}, Ctx) ->
   respond(Code, Ctx);
 respond(Code, Ctx) when is_integer(Code) ->
-  {ok, Resource} = unrest_context:get(resource_module, Ctx),
+  {ok, Resource} = unrest_context:get(resource, Ctx),
   {ok, Callstack} = unrest_context:callstack(Ctx),
   lager:info("Resource call finished with code ~p. "
               "Resource: ~p. Callstack: ~p"
@@ -715,7 +714,7 @@ respond(Code, Ctx) when is_integer(Code) ->
   {ok, Req}  = cowboy_req:reply(Code, Req0),
   {respond, Req};
 respond(Reason, Ctx) ->
-  {ok, Resource} = unrest_context:get(resource_module, Ctx),
+  {ok, Resource} = unrest_context:get(resource, Ctx),
   {ok, Callstack} = unrest_context:callstack(Ctx),
   lager:info( "Resource call finished with error ~p. "
                "Resource: ~p. Callstack: ~p"
@@ -727,6 +726,24 @@ respond(Reason, Ctx) ->
 
 
 %%_* Helpers ===================================================================
+
+get_exports([R|_] = Resources) when is_binary(R) ->
+  lists:foldl(fun store_exports/2, [], Resources);
+get_exports(Resource) ->
+  get_exports([Resource]).
+
+store_exports(Resource, Acc) ->
+  Module = list_to_atom(binary_to_list(Resource)),
+  Exports = Module:module_info(exports),
+  lists:foldl( fun({Fun, Arity}, Acc2) ->
+                 lists:keystore( {Fun, Arity}
+                               , 1
+                               , Acc2
+                               , {{Fun, Arity}, fun Module:Fun/Arity})
+               end
+             , Acc
+             , Exports
+             ).
 
 req(Ctx) ->
   {ok, Req} = unrest_context:get(req, Ctx),

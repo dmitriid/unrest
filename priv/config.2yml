@@ -1,0 +1,13 @@
+unrest configuration file
+---
+/aa:
+  GET:
+    Content-Type: application/vnd.dmitriid.example.mediatype-v1+json
+    __flow__:
+      unrest_service: output
+
+
+__flows__:
+    A_flow:
+      __flow__: SIMPLE_flow
+      unrest_service: output

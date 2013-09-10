@@ -44,8 +44,14 @@ A dummy handler for these flows is implemented in [src/unrest_service.erl](https
 
 ## Can I use it from my app?
 
-Yes. Include _unrest_ in your app and call
-`unrest:start(path_to_config_file)`. You're set and ready to go.
+Yes. Include _unrest_ in your app and call one of
+* `unrest:start(path_to_config_file)`.
+* `unrest:start([a, list, of, paths, to, config, files])`.
+* `unrest:start(hostname, path_to_config_file)`
+* `unrest:start(hostname, [a, list, of, paths, to, config, files])`
+* `unrest:start([{hostname1, path_to_config_file}, {hostname2, [a, list, of, paths, to, config, files]}])`.
+
+You're set and ready to go.
 
 What's a config file? Read on :)
 
